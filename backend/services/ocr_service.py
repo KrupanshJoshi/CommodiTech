@@ -18,8 +18,18 @@ from pytesseract import Output
 # Initialize RapidOCR engine if available
 try:
     from rapidocr_onnxruntime import RapidOCR
-    _rapidocr_engine = RapidOCR()
-except Exception:
+
+    # Railway runs CPU-only OCR. Limit the detector's working image size and
+    # keep ONNX Runtime from creating more threads than the worker needs.
+    _rapidocr_engine = RapidOCR(
+        print_verbose=False,
+        det_limit_side_len=int(os.environ.get("RAPIDOCR_MAX_SIDE_LEN", "1280")),
+        det_limit_type="max",
+        intra_op_num_threads=int(os.environ.get("RAPIDOCR_INTRA_THREADS", "2")),
+        inter_op_num_threads=int(os.environ.get("RAPIDOCR_INTER_THREADS", "1")),
+    )
+except Exception as exc:
+    print(f"[OCR] RapidOCR unavailable: {exc}")
     _rapidocr_engine = None
 
 
@@ -148,49 +158,75 @@ def _deskew(binary_img):
 
 
 def run_ocr(image_bgr):
-    """Runs real OCR directly on the provided image pixels using both RapidOCR and Tesseract.
+    """Fast OCR pipeline.
 
-    Combines their outputs, normalizes word bounding boxes, and tracks engine agreement.
+    RapidOCR is the primary engine. Tesseract is used only when
+    RapidOCR returns no usable text, avoiding two full OCR passes
+    for normal label images.
     """
-    # 1. Log & verify image identity
     h, w = image_bgr.shape[:2]
-    image_hash = hashlib.sha256(image_bgr.tobytes()).hexdigest()[:16]
-    print(f"[OCR] Processing image: dimensions={w}x{h}, SHA-256 prefix={image_hash}")
+    print(f"[OCR] Processing image: dimensions={w}x{h}")
 
+    # Keep very large camera images from consuming excessive CPU/RAM.
+    # 1600 px is sufficient for the label text while keeping inference fast.
+    max_side = 1600
+    if max(h, w) > max_side:
+        scale = max_side / float(max(h, w))
+        image_for_ocr = cv2.resize(
+            image_bgr,
+            None,
+            fx=scale,
+            fy=scale,
+            interpolation=cv2.INTER_AREA,
+        )
+        print(
+            f"[OCR] Resized for inference: "
+            f"{image_for_ocr.shape[1]}x{image_for_ocr.shape[0]}"
+        )
+    else:
+        image_for_ocr = image_bgr
+
+    # ---------------------------------------------------------
+    # 1. RapidOCR - primary / fast path
+    # ---------------------------------------------------------
     rapid_words = []
-    rapid_text = ""
     rapid_confidences = []
 
-    tess_words = []
-    tess_text = ""
-    tess_confidences = []
-
-    # 2. Run RapidOCR (deep learning scene & layout OCR)
     if _rapidocr_engine is not None:
         try:
-            ocr_results, _ = _rapidocr_engine(image_bgr)
+            ocr_results, _ = _rapidocr_engine(image_for_ocr)
+
             if ocr_results:
                 for idx, item in enumerate(ocr_results):
                     box, text, score = item
                     text_str = str(text).strip()
+
                     if not text_str:
                         continue
 
                     xs = [p[0] for p in box]
                     ys = [p[1] for p in box]
+
                     left = int(min(xs))
                     top = int(min(ys))
-                    width = int(max(xs) - min(xs))
-                    height = int(max(ys) - min(ys))
+                    right = int(max(xs))
+                    bottom = int(max(ys))
 
-                    conf = round(float(score) * 100, 2) if float(score) <= 1.0 else round(float(score), 2)
+                    score_float = float(score)
+                    conf = (
+                        score_float * 100
+                        if score_float <= 1.0
+                        else score_float
+                    )
+                    conf = round(conf, 2)
+
                     rapid_words.append({
                         "text": text_str,
                         "confidence": conf,
                         "left": left,
                         "top": top,
-                        "width": width,
-                        "height": height,
+                        "width": max(0, right - left),
+                        "height": max(0, bottom - top),
                         "line_num": idx + 1,
                         "block_num": 1,
                         "par_num": 1,
@@ -199,30 +235,71 @@ def run_ocr(image_bgr):
                     rapid_confidences.append(conf)
 
                 if rapid_words:
-                    rapid_text = "\n".join(w["text"] for w in rapid_words)
-                    print(f"[OCR] RapidOCR detected {len(rapid_words)} lines/tokens.")
+                    rapid_text = "\n".join(
+                        word["text"] for word in rapid_words
+                    )
+                    mean_conf = round(
+                        sum(rapid_confidences)
+                        / len(rapid_confidences),
+                        2,
+                    )
+
+                    print(
+                        f"[OCR] RapidOCR detected {len(rapid_words)} "
+                        f"lines. Confidence={mean_conf}%"
+                    )
+
+                    # Critical optimization: don't run Tesseract when
+                    # RapidOCR already produced usable text.
+                    return {
+                        "raw_text": rapid_text,
+                        "mean_confidence": mean_conf,
+                        "words": rapid_words,
+                        "engine": "RapidOCR-ONNX",
+                        "rapidocr_text": rapid_text,
+                        "tesseract_text": "",
+                    }
+
         except Exception as exc:
             print(f"[OCR] RapidOCR error: {exc}")
 
-    # 3. Run Tesseract OCR (classical CV + LSTM engine)
+    # ---------------------------------------------------------
+    # 2. Tesseract - fallback only
+    # ---------------------------------------------------------
+    print("[OCR] RapidOCR returned no usable text; "
+          "starting Tesseract fallback.")
+
+    tess_words = []
+    tess_confidences = []
     cmd = _probe_tesseract_cmd()
+
     if cmd:
         pytesseract.pytesseract.tesseract_cmd = cmd
+
         try:
-            processed = preprocess_image(image_bgr)
+            # Expensive OpenCV preprocessing is now only paid when
+            # the primary OCR engine fails to find text.
+            processed = preprocess_image(image_for_ocr)
+
             data = pytesseract.image_to_data(
-                processed, output_type=Output.DICT, config="--oem 3 --psm 6"
+                processed,
+                output_type=Output.DICT,
+                config="--oem 3 --psm 6",
             )
+
             n = len(data.get("text", []))
+
             for i in range(n):
-                text = data["text"][i].strip()
-                conf_raw = data["conf"][i]
+                text = str(data["text"][i]).strip()
+
                 try:
-                    conf = float(conf_raw)
+                    conf = float(data["conf"][i])
                 except (TypeError, ValueError):
                     conf = -1.0
+
                 if not text or conf < 0:
                     continue
+
                 tess_words.append({
                     "text": text,
                     "confidence": conf,
@@ -230,54 +307,58 @@ def run_ocr(image_bgr):
                     "top": int(data["top"][i]),
                     "width": int(data["width"][i]),
                     "height": int(data["height"][i]),
-                    "line_num": int(data.get("line_num", [0] * n)[i]),
-                    "block_num": int(data.get("block_num", [0] * n)[i]),
-                    "par_num": int(data.get("par_num", [0] * n)[i]),
+                    "line_num": int(
+                        data.get("line_num", [0] * n)[i]
+                    ),
+                    "block_num": int(
+                        data.get("block_num", [0] * n)[i]
+                    ),
+                    "par_num": int(
+                        data.get("par_num", [0] * n)[i]
+                    ),
                     "engine": "tesseract",
                 })
                 tess_confidences.append(conf)
 
             if tess_words:
-                tess_text = " ".join(w["text"] for w in tess_words)
-                print(f"[OCR] Tesseract detected {len(tess_words)} words.")
+                tess_text = " ".join(
+                    word["text"] for word in tess_words
+                )
+                mean_conf = round(
+                    sum(tess_confidences)
+                    / len(tess_confidences),
+                    2,
+                )
+
+                print(
+                    f"[OCR] Tesseract detected {len(tess_words)} "
+                    f"words. Confidence={mean_conf}%"
+                )
+
+                return {
+                    "raw_text": tess_text,
+                    "mean_confidence": mean_conf,
+                    "words": tess_words,
+                    "engine": "Tesseract-OCR",
+                    "rapidocr_text": "",
+                    "tesseract_text": tess_text,
+                }
+
         except Exception as exc:
             print(f"[OCR] Tesseract error: {exc}")
 
-    # 4. Merge & Normalize Dual OCR Results
-    all_words = rapid_words if rapid_words else tess_words
-    all_confidences = rapid_confidences if rapid_words else tess_confidences
-
-    # Construct unified multi-line raw text
-    if rapid_text and tess_text:
-        # RapidOCR preserves natural multi-line layout best, combine both
-        primary_text = rapid_text
-        mean_conf = round((sum(rapid_confidences) / len(rapid_confidences) + sum(tess_confidences) / len(tess_confidences)) / 2.0, 2)
-        engine_name = "Dual-Engine (RapidOCR + Tesseract)"
-    elif rapid_text:
-        primary_text = rapid_text
-        mean_conf = round(sum(rapid_confidences) / len(rapid_confidences), 2)
-        engine_name = "RapidOCR-ONNX"
-    elif tess_text:
-        primary_text = tess_text
-        mean_conf = round(sum(tess_confidences) / len(tess_confidences), 2)
-        engine_name = "Tesseract-OCR"
-    else:
-        return {
-            "raw_text": "",
-            "mean_confidence": -1.0,
-            "words": [],
-            "engine": "None",
-            "rapidocr_text": "",
-            "tesseract_text": "",
-        }
+    # ---------------------------------------------------------
+    # 3. Nothing detected
+    # ---------------------------------------------------------
+    print("[OCR] No usable text detected.")
 
     return {
-        "raw_text": primary_text,
-        "mean_confidence": mean_conf,
-        "words": all_words,
-        "engine": engine_name,
-        "rapidocr_text": rapid_text,
-        "tesseract_text": tess_text,
+        "raw_text": "",
+        "mean_confidence": -1.0,
+        "words": [],
+        "engine": "None",
+        "rapidocr_text": "",
+        "tesseract_text": "",
     }
 
 

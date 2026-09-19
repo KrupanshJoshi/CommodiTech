@@ -1,5 +1,6 @@
 import os
 import uuid
+import time
 
 from flask import Blueprint, request, jsonify, g, current_app
 
@@ -50,7 +51,9 @@ def run_ocr_endpoint():
         return jsonify({"success": False, "error": str(exc)}), 400
 
     # Step 1: Pre-OCR Image Quality Assessment
+    pipeline_started = time.perf_counter()
     quality = assess_image_quality(image)
+    quality_ms = round((time.perf_counter() - pipeline_started) * 1000)
     if not quality["is_acceptable"]:
         return jsonify({
             "success": False,
@@ -63,10 +66,13 @@ def run_ocr_endpoint():
         }), 422
 
     # Step 2: OCR Execution
+    ocr_started = time.perf_counter()
     try:
         ocr_result = run_ocr(image)
     except OcrUnavailableError as exc:
         return jsonify({"success": False, "error": "ocr_unavailable", "message": str(exc)}), 503
+
+    ocr_ms = round((time.perf_counter() - ocr_started) * 1000)
 
     # Step 3: Post-OCR Readability Verification
     readability = verify_ocr_readability(ocr_result["words"], ocr_result["raw_text"], quality)
@@ -97,7 +103,9 @@ def run_ocr_endpoint():
     review_fields = [k for k, v in extracted.items() if v.get("status") == "needs_review"]
     detected_fields = [k for k, v in extracted.items() if v.get("value")]
     print(f"[OCR Telemetry] Ingested File: '{file.filename}', Size: {len(file_bytes)} bytes, Dim: {w}x{h}")
+    total_ms = round((time.perf_counter() - pipeline_started) * 1000)
     print(f"[OCR Telemetry] Engines: {ocr_result.get('engine', 'Dual-Engine')}, Words Detected: {len(ocr_result.get('words', []))}, OCR Text Length: {len(ocr_result.get('raw_text', ''))}")
+    print(f"[OCR Timing] quality={quality_ms}ms, ocr={ocr_ms}ms, total_before_response={total_ms}ms")
     print(f"[OCR Telemetry] Extracted Fields: {len(detected_fields)}/12, Requiring Review: {review_fields or 'None'}")
 
     scan = Scan(

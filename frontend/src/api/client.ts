@@ -141,16 +141,34 @@ export const api = {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    return request<{
-      success: boolean;
-      scan_id: number;
-      ocr_mean_confidence: number;
-      extracted_fields: ExtractedFields;
-      status: string;
-    }>('/ocr', {
-      method: 'POST',
-      body: formData,
-    });
+    // OCR is CPU/AI work on the backend. Abort instead of leaving the
+    // processing screen stuck forever if the server becomes unresponsive.
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
+
+    try {
+      return await request<{
+        success: boolean;
+        scan_id: number;
+        ocr_mean_confidence: number;
+        extracted_fields: ExtractedFields;
+        status: string;
+      }>('/ocr', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new ApiError(
+          'OCR is taking too long. Please try a clearer or smaller label image.',
+          408
+        );
+      }
+      throw err;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   },
 
   async confirmFields(

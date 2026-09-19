@@ -101,7 +101,7 @@ export const NewScan: React.FC = () => {
     try {
       setTimeout(() => {
         setScanStepIndex(2);
-        setScanStatusText(t('scan.step_ocr', 'Running OpenCV image enhancement and dual-engine OCR...'));
+        setScanStatusText(t('scan.step_ocr', 'Running fast OCR on the product label...'));
       }, 700);
 
       setTimeout(() => {
@@ -191,7 +191,7 @@ export const NewScan: React.FC = () => {
               <span className={scanStepIndex >= 2 ? 'pipeline-done' : ''}>
                 {scanStepIndex >= 2 ? <Check size={12} /> : <i />}
               </span>
-              <span>{t('scan.p2', 'OpenCV preprocessing & dual-engine OCR')}</span>
+              <span>{t('scan.p2', 'Fast OCR & text detection')}</span>
             </div>
             <div className="pipeline-step">
               <span className={scanStepIndex >= 3 ? 'pipeline-done' : ''}>
@@ -422,7 +422,7 @@ export const NewScan: React.FC = () => {
               </div>
               <div className="pipeline-step">
                 <span><i /></span>
-                <span>{t('scan.p2', 'OpenCV preprocessing & dual-engine OCR')}</span>
+                <span>{t('scan.p2', 'Fast OCR & text detection')}</span>
               </div>
               <div className="pipeline-step">
                 <span><i /></span>
