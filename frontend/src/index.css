@@ -785,6 +785,7 @@ td:first-child, th:first-child {
   display: flex;
   align-items: center;
   max-width: 760px;
+  gap: 8px;
   margin: 0 0 28px;
 }
 .workflow-step {
@@ -793,21 +794,21 @@ td:first-child, th:first-child {
   font-family: var(--font-mono);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
+  min-width: 0;
+  white-space: nowrap;
 }
 .workflow-step:not(:last-child):after {
-  content: '';
-  height: 1px;
-  background: #dce6e2;
-  flex: 1;
-  margin: 0 12px;
+  display: none;
 }
 .workflow-step span {
   border: 1px solid #d6e1de;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  min-width: 25px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: #f4f8f7;
   display: grid;
   place-items: center;
   color: #9aa7a4;
@@ -1815,7 +1816,7 @@ td:first-child, th:first-child {
   }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 1000px) {
   .topbar {
     padding: 0 16px;
   }
@@ -1872,10 +1873,13 @@ td:first-child, th:first-child {
     padding-bottom: 4px;
   }
   .workflow-step {
-    min-width: 130px;
-  }
-  .workflow-step:not(:last-child):after {
-    margin: 0 8px;
+    flex: 0 0 auto;
+    min-width: 142px;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
   }
   .commodity-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2005,14 +2009,14 @@ td:first-child, th:first-child {
   }
 }
 
-/* Phone navigation and touch layout. Desktop and tablet layout stays unchanged. */
+/* Compact navigation and touch layout for phones and tablets. */
 .mobile-menu-toggle,
 .mobile-nav-drawer,
 .mobile-nav-backdrop {
   display: none;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 1000px) {
   .app-shell {
     display: block;
   }
@@ -2152,7 +2156,7 @@ td:first-child, th:first-child {
 
   .page-content {
     width: 100%;
-    overflow: hidden;
+    overflow-x: clip;
   }
 
   .page-heading {
