@@ -28,6 +28,7 @@ export const NewScan: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedCommodity, setSelectedCommodity] = useState(COMMODITIES[0]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -147,6 +148,7 @@ export const NewScan: React.FC = () => {
     setError(null);
     setQualityError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   // If in scanning progress state, render v0 Processing View
@@ -322,45 +324,41 @@ export const NewScan: React.FC = () => {
             </div>
           </div>
 
-          <label
-            className={`upload-zone ${selectedFile ? 'upload-filled' : ''}`}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleFileSelect(e.target.files[0]);
-                }
-              }}
-            />
-            {selectedFile ? (
-              <>
-                <div className="file-icon">
-                  <FileCheck2 size={22} />
-                </div>
-                <div className="flex-1 min-w-0 pr-2">
-                  <strong className="truncate">{selectedFile.name}</strong>
-                  <span>{(selectedFile.size / 1024).toFixed(1)} KB · Ready for quality check</span>
-                </div>
-                <button
-                  type="button"
-                  className="remove-file"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    clearFile();
+          {selectedFile ? (
+            <div className="upload-zone upload-filled">
+              <div className="file-icon">
+                <FileCheck2 size={22} />
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <strong className="truncate">{selectedFile.name}</strong>
+                <span>{(selectedFile.size / 1024).toFixed(1)} KB · Ready for quality check</span>
+              </div>
+              <button
+                type="button"
+                className="remove-file"
+                onClick={clearFile}
+                title="Remove selected file"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="upload-options">
+              <label
+                className="upload-zone"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileSelect(e.target.files[0]);
+                    }
                   }}
-                  title="Remove selected file"
-                >
-                  <X size={16} />
-                </button>
-              </>
-            ) : (
-              <>
+                />
                 <div className="upload-icon">
                   <CloudUpload size={22} />
                 </div>
@@ -370,9 +368,30 @@ export const NewScan: React.FC = () => {
                     {t('scan.browse_label', 'or browse from your computer · JPG, PNG, WEBP up to 10 MB')}
                   </span>
                 </div>
-              </>
-            )}
-          </label>
+              </label>
+
+              <label className="camera-capture-option">
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileSelect(e.target.files[0]);
+                    }
+                  }}
+                />
+                <div className="camera-capture-icon">
+                  <Camera size={22} />
+                </div>
+                <div>
+                  <strong>{t('scan.camera_label', 'Take a photo')}</strong>
+                  <span>{t('scan.camera_hint', 'Use your phone camera')}</span>
+                </div>
+              </label>
+            </div>
+          )}
 
           <div className="quality-note">
             <div className="quality-check">

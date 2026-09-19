@@ -902,6 +902,12 @@ td:first-child, th:first-child {
 .upload-heading {
   margin-bottom: 16px;
 }
+.upload-options {
+  margin-left: 36px;
+}
+.upload-options .upload-zone {
+  margin-left: 0;
+}
 .upload-zone {
   margin-left: 36px;
   border: 1.5px dashed #a8c7c0;
@@ -972,6 +978,9 @@ td:first-child, th:first-child {
 .upload-filled .remove-file:hover {
   color: var(--red);
   border-color: var(--red);
+}
+.camera-capture-option {
+  display: none;
 }
 .quality-note {
   margin: 16px 0 24px 36px;
@@ -1873,8 +1882,68 @@ td:first-child, th:first-child {
     margin-left: 0;
   }
   .upload-zone,
+  .upload-options,
   .quality-note {
     margin-left: 0;
+  }
+  .upload-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .upload-options .upload-zone,
+  .camera-capture-option {
+    min-height: 148px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .camera-capture-option {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1.5px dashed #a8c7c0;
+    border-radius: 8px;
+    background: #f7fbfa;
+    color: #355c5e;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .camera-capture-option:hover {
+    border-color: var(--teal);
+    background: #f0f7f5;
+  }
+  .camera-capture-option input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .camera-capture-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: #e2f0ed;
+    color: var(--teal);
+  }
+  .camera-capture-option strong,
+  .camera-capture-option span {
+    display: block;
+  }
+  .camera-capture-option strong {
+    font-size: 12px;
+  }
+  .camera-capture-option span {
+    margin-top: 3px;
+    color: #869691;
+    font-size: 10px;
+    line-height: 1.35;
   }
   .form-actions {
     flex-direction: column-reverse;
@@ -2342,19 +2411,25 @@ td:first-child, th:first-child {
 }
 
 [data-theme="dark"] .upload-zone,
-.dark .upload-zone {
+.dark .upload-zone,
+[data-theme="dark"] .camera-capture-option,
+.dark .camera-capture-option {
   background: #111e21;
   border-color: #27474c;
 }
 
 [data-theme="dark"] .upload-zone:hover,
-.dark .upload-zone:hover {
+.dark .upload-zone:hover,
+[data-theme="dark"] .camera-capture-option:hover,
+.dark .camera-capture-option:hover {
   background: #16282d;
   border-color: var(--teal);
 }
 
 [data-theme="dark"] .upload-zone strong,
-.dark .upload-zone strong {
+.dark .upload-zone strong,
+[data-theme="dark"] .camera-capture-option strong,
+.dark .camera-capture-option strong {
   color: #d4e8e5;
 }
 
