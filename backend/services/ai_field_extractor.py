@@ -73,7 +73,7 @@ def _get_ai_config():
             provider = "none"
 
     if provider == "gemini" and not model:
-        model = "gemini-1.5-flash"
+        model = "gemini-3.5-flash-lite"
     elif provider == "openai" and not model:
         model = "gpt-4o-mini"
 
@@ -88,8 +88,8 @@ def _get_ai_config():
 def extract_with_gemini(ocr_text, config):
     """Calls Google Gemini REST API using JSON mode with multi-model fallback."""
     api_key = config["api_key"]
-    primary_model = config["model"] or "gemini-1.5-flash"
-    fallback_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    primary_model = config["model"] or "gemini-3.5-flash-lite"
+    fallback_models = ["gemini-3.5-flash", "gemini-3.6-flash"]
     models_to_try = [primary_model] + [m for m in fallback_models if m != primary_model]
 
     prompt_content = f"OCR TEXT FROM PACKAGING LABEL:\n\"\"\"\n{ocr_text}\n\"\"\"\n\nExtract all 12 statutory regulatory parameters according to instructions."

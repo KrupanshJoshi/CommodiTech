@@ -55,7 +55,7 @@ class Config:
     # --- AI-Assisted Semantic Extraction ---
     AI_PROVIDER = os.environ.get("AI_PROVIDER", "gemini")  # gemini, openai, mock_testing
     AI_API_KEY = os.environ.get("AI_API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
-    AI_MODEL = os.environ.get("AI_MODEL", "gemini-1.5-flash")
+    AI_MODEL = os.environ.get("AI_MODEL", "gemini-3.5-flash-lite")
     AI_TIMEOUT_SECONDS = int(os.environ.get("AI_TIMEOUT_SECONDS", "12"))
 
     # --- App ---
