@@ -13,34 +13,36 @@ from services.compliance_engine import run_compliance_check
 reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
 
 
-@reports_bp.post("/<int:scan_id>")
-@login_required
-def create_report(scan_id):
-    scan = Scan.query.filter_by(id=scan_id, user_id=g.current_user.id).first()
-    if not scan:
-        return jsonify({"success": False, "error": "Scan not found"}), 404
+def _effective_fields(scan, fallback_to_extracted=True):
+    """Confirmed fields, falling back to extraction values when nothing is confirmed."""
+    fields = scan.get_confirmed_fields() or {}
+    if fallback_to_extracted and not any(fields.values()):
+        extracted = scan.get_extracted_fields() or {}
+        fields = {k: (v.get("value") if isinstance(v, dict) else v) for k, v in extracted.items()}
+    return fields
 
-    compliance_result = scan.get_compliance_result()
-    if not compliance_result:
-        # Auto evaluate compliance if not yet run
-        fields_to_check = scan.get_confirmed_fields() or {}
-        if not any(fields_to_check.values()):
-            extracted = scan.get_extracted_fields() or {}
-            fields_to_check = {k: (v.get("value") if isinstance(v, dict) else v) for k, v in extracted.items()}
-        compliance_result = run_compliance_check(fields_to_check)
-        scan.set_compliance_result(compliance_result)
-        scan.compliance_status = compliance_result["status"]
-        scan.compliance_score = compliance_result["score"]
+
+def _compliance_result(scan, fallback_to_extracted=True):
+    """Return the scan's compliance result, evaluating it and updating the scan when absent."""
+    result = scan.get_compliance_result()
+    if not result:
+        result = run_compliance_check(_effective_fields(scan, fallback_to_extracted))
+        scan.set_compliance_result(result)
+        scan.compliance_status = result["status"]
+        scan.compliance_score = result["score"]
         scan.status = "compliance_checked"
-        db.session.commit()
+    return result
 
-    os.makedirs(current_app.config["REPORT_FOLDER"], exist_ok=True)
+
+def _build_report(scan):
+    """Generate the PDF and persist a Report record for the scan."""
+    result = _compliance_result(scan)
     filename = f"compliance_report_{scan.id}_{uuid.uuid4().hex[:8]}.pdf"
     file_path = os.path.join(current_app.config["REPORT_FOLDER"], filename)
 
     generate_compliance_pdf(
         file_path, scan, g.current_user,
-        scan.get_extracted_fields(), scan.get_confirmed_fields(), compliance_result,
+        scan.get_extracted_fields(), scan.get_confirmed_fields(), result,
     )
 
     report = Report(
@@ -48,14 +50,62 @@ def create_report(scan_id):
         scan_id=scan.id,
         filename=filename,
         file_path=file_path,
-        compliance_status=compliance_result["status"],
-        compliance_score=compliance_result["score"],
+        compliance_status=result["status"],
+        compliance_score=result["score"],
     )
     report.created_at = User.now()
     db.session.add(report)
     db.session.commit()
+    return report
 
-    return jsonify({"success": True, "report": report.to_dict()}), 201
+
+def _find_report(report_id):
+    report = Report.query.filter_by(id=report_id, user_id=g.current_user.id).first()
+    if not report:
+        # Fall back to treating the id as a scan_id
+        report = Report.query.filter_by(scan_id=report_id, user_id=g.current_user.id).order_by(Report.id.desc()).first()
+    return report
+
+
+def _resolve_file_path(report, folder):
+    """Locate the report file on disk, by absolute path or by filename in the report folder."""
+    if report.file_path:
+        candidate = report.file_path if os.path.isabs(report.file_path) else os.path.abspath(report.file_path)
+        if os.path.exists(candidate):
+            return candidate
+    if report.filename:
+        candidate = os.path.join(folder, report.filename)
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _regenerate_file(report, folder):
+    """Regenerate the report PDF from confirmed fields when the file is missing on disk."""
+    scan = Scan.query.filter_by(id=report.scan_id, user_id=g.current_user.id).first()
+    if not scan:
+        return None
+    result = _compliance_result(scan, fallback_to_extracted=False)
+    filename = f"compliance_report_{scan.id}_{uuid.uuid4().hex[:8]}.pdf"
+    path = os.path.join(folder, filename)
+
+    generate_compliance_pdf(
+        path, scan, g.current_user,
+        scan.get_extracted_fields(), scan.get_confirmed_fields(), result,
+    )
+    report.filename = filename
+    report.file_path = path
+    db.session.commit()
+    return path
+
+
+@reports_bp.post("/<int:scan_id>")
+@login_required
+def create_report(scan_id):
+    scan = Scan.query.filter_by(id=scan_id, user_id=g.current_user.id).first()
+    if not scan:
+        return jsonify({"success": False, "error": "Scan not found"}), 404
+    return jsonify({"success": True, "report": _build_report(scan).to_dict()}), 201
 
 
 @reports_bp.get("")
@@ -69,53 +119,13 @@ def list_reports():
 @login_required
 def get_report(report_id):
     try:
-        report = Report.query.filter_by(id=report_id, user_id=g.current_user.id).first()
+        report = _find_report(report_id)
         if not report:
-            # Check if report_id was actually a scan_id
-            report = Report.query.filter_by(scan_id=report_id, user_id=g.current_user.id).order_by(Report.id.desc()).first()
-        
-        if not report:
-            # Check if the scan itself exists and auto-generate the report
+            # Auto-generate the report if the id refers directly to a scan
             scan = Scan.query.filter_by(id=report_id, user_id=g.current_user.id).first()
             if scan:
-                compliance_result = scan.get_compliance_result()
-                if not compliance_result:
-                    fields_to_check = scan.get_confirmed_fields() or {}
-                    if not any(fields_to_check.values()):
-                        extracted = scan.get_extracted_fields() or {}
-                        fields_to_check = {k: (v.get("value") if isinstance(v, dict) else v) for k, v in extracted.items()}
-                    compliance_result = run_compliance_check(fields_to_check)
-                    scan.set_compliance_result(compliance_result)
-                    scan.compliance_status = compliance_result["status"]
-                    scan.compliance_score = compliance_result["score"]
-                    scan.status = "compliance_checked"
-
-                report_folder = os.path.abspath(current_app.config["REPORT_FOLDER"])
-                os.makedirs(report_folder, exist_ok=True)
-                filename = f"compliance_report_{scan.id}_{uuid.uuid4().hex[:8]}.pdf"
-                file_path = os.path.join(report_folder, filename)
-
-                generate_compliance_pdf(
-                    file_path, scan, g.current_user,
-                    scan.get_extracted_fields(), scan.get_confirmed_fields(), compliance_result,
-                )
-
-                report = Report(
-                    user_id=g.current_user.id,
-                    scan_id=scan.id,
-                    filename=filename,
-                    file_path=file_path,
-                    compliance_status=compliance_result["status"],
-                    compliance_score=compliance_result["score"],
-                )
-                report.created_at = User.now()
-                db.session.add(report)
-                db.session.commit()
-                return jsonify({"success": True, "report": report.to_dict()}), 201
-
-        if not report:
+                return jsonify({"success": True, "report": _build_report(scan).to_dict()}), 201
             return jsonify({"success": False, "error": "Report not found"}), 404
-
         return jsonify({"success": True, "report": report.to_dict()}), 200
     except Exception as e:
         current_app.logger.exception(f"Error fetching report {report_id}: {e}")
@@ -126,84 +136,21 @@ def get_report(report_id):
 @login_required
 def download_report(report_id):
     try:
-        report = Report.query.filter_by(id=report_id, user_id=g.current_user.id).first()
-        if not report:
-            # Check if report_id was actually a scan_id
-            report = Report.query.filter_by(scan_id=report_id, user_id=g.current_user.id).order_by(Report.id.desc()).first()
-
+        report = _find_report(report_id)
         report_folder = os.path.abspath(current_app.config["REPORT_FOLDER"])
         os.makedirs(report_folder, exist_ok=True)
 
         if not report:
-            # Check if scan exists directly and create report record on the fly
+            # Create the report record on the fly if the id refers directly to a scan
             scan = Scan.query.filter_by(id=report_id, user_id=g.current_user.id).first()
             if scan:
-                compliance_result = scan.get_compliance_result()
-                if not compliance_result:
-                    fields_to_check = scan.get_confirmed_fields() or {}
-                    if not any(fields_to_check.values()):
-                        extracted = scan.get_extracted_fields() or {}
-                        fields_to_check = {k: (v.get("value") if isinstance(v, dict) else v) for k, v in extracted.items()}
-                    compliance_result = run_compliance_check(fields_to_check)
-                    scan.set_compliance_result(compliance_result)
-                    scan.compliance_status = compliance_result["status"]
-                    scan.compliance_score = compliance_result["score"]
-                    scan.status = "compliance_checked"
+                report = _build_report(scan)
+            else:
+                return jsonify({"success": False, "error": "Report not found"}), 404
 
-                filename = f"compliance_report_{scan.id}_{uuid.uuid4().hex[:8]}.pdf"
-                file_path = os.path.join(report_folder, filename)
-
-                generate_compliance_pdf(
-                    file_path, scan, g.current_user,
-                    scan.get_extracted_fields(), scan.get_confirmed_fields(), compliance_result,
-                )
-
-                report = Report(
-                    user_id=g.current_user.id,
-                    scan_id=scan.id,
-                    filename=filename,
-                    file_path=file_path,
-                    compliance_status=compliance_result["status"],
-                    compliance_score=compliance_result["score"],
-                )
-                report.created_at = User.now()
-                db.session.add(report)
-                db.session.commit()
-
-        if not report:
-            return jsonify({"success": False, "error": "Report not found"}), 404
-
-        # Resolve absolute file path
-        resolved_path = None
-        if report.file_path:
-            candidate = os.path.abspath(report.file_path) if not os.path.isabs(report.file_path) else report.file_path
-            if os.path.exists(candidate):
-                resolved_path = candidate
-
-        if not resolved_path and report.filename:
-            candidate = os.path.join(report_folder, report.filename)
-            if os.path.exists(candidate):
-                resolved_path = candidate
-
-        # Regenerate file if not found on disk
+        resolved_path = _resolve_file_path(report, report_folder)
         if not resolved_path:
-            scan = Scan.query.filter_by(id=report.scan_id, user_id=g.current_user.id).first()
-            if scan:
-                compliance_result = scan.get_compliance_result()
-                if not compliance_result:
-                    fields_to_check = scan.get_confirmed_fields() or {}
-                    compliance_result = run_compliance_check(fields_to_check)
-                
-                filename = f"compliance_report_{scan.id}_{uuid.uuid4().hex[:8]}.pdf"
-                resolved_path = os.path.join(report_folder, filename)
-
-                generate_compliance_pdf(
-                    resolved_path, scan, g.current_user,
-                    scan.get_extracted_fields(), scan.get_confirmed_fields(), compliance_result,
-                )
-                report.filename = filename
-                report.file_path = resolved_path
-                db.session.commit()
+            resolved_path = _regenerate_file(report, report_folder)
 
         if not resolved_path or not os.path.exists(resolved_path):
             return jsonify({"success": False, "error": "Report file is missing and could not be regenerated"}), 410

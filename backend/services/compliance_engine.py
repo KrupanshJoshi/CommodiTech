@@ -11,59 +11,32 @@ from datetime import date
 from services.rules_data import RULES
 from utils.validators import try_parse_date
 
-
-def _present(fields, key):
-    v = fields.get(key)
-    return v is not None and str(v).strip() != ""
-
-
-def _check_R01(fields, today):
-    ok = _present(fields, "product_name")
-    return ok, "Product name is declared." if ok else "Product name is missing.", \
-        None if ok else "Ensure the product's common/generic name is printed clearly on the label."
+_PRESENT = lambda fields, key: fields.get(key) is not None and str(fields.get(key)).strip() != ""  # noqa: E731
+_DATE = lambda fields, key: fields.get(key) is not None and try_parse_date(fields.get(key)) is not None  # noqa: E731
+_ANY = lambda fields, keys: any(_PRESENT(fields, k) for k in keys)  # noqa: E731
 
 
-def _check_R02(fields, today):
-    ok = _present(fields, "commodity_category")
-    return ok, "Commodity category is declared." if ok else "Commodity category is missing.", \
-        None if ok else "Add the commodity/product category for correct classification."
+def _outcome(ok, good, bad, fix):
+    return ok, good if ok else bad, None if ok else fix
 
 
-def _check_R03(fields, today):
-    ok = _present(fields, "manufacturer_name")
-    return ok, "Manufacturer name is declared." if ok else "Manufacturer name is missing.", \
-        None if ok else "Print the manufacturer's/packer's/marketer's name on the label."
+def _presence_check(fields, key, good, bad, fix):
+    return _outcome(_PRESENT(fields, key), good, bad, fix)
 
 
-def _check_R04(fields, today):
-    ok = _present(fields, "manufacturer_address")
-    return ok, "Manufacturer address is declared." if ok else "Manufacturer address is missing.", \
-        None if ok else "Print the complete manufacturer address including PIN code."
+def _date_check(fields, key, good, bad, fix):
+    return _outcome(_DATE(fields, key), good, bad, fix)
 
 
-def _check_R05(fields, today):
-    ok = _present(fields, "batch_number")
-    return ok, "Batch/Lot number is present." if ok else "Batch/Lot number is missing.", \
-        None if ok else "Add a batch or lot number for traceability and recall purposes."
+def _any_present_check(fields, keys, good, bad, fix):
+    return _outcome(_ANY(fields, keys), good, bad, fix)
 
 
-def _check_R06(fields, today):
-    ok = _present(fields, "net_quantity")
-    return ok, "Net quantity is declared with a valid unit." if ok else "Net quantity is missing or invalid.", \
-        None if ok else "Declare net quantity using a standard unit, e.g. '500 g' or '1 L'."
-
-
-def _check_R07(fields, today):
-    value = fields.get("manufacturing_date")
-    ok = value is not None and try_parse_date(value) is not None
-    return ok, "Manufacturing date is present and valid." if ok else "Manufacturing date is missing or unrecognized.", \
-        None if ok else "Print the manufacturing/packing date in a standard format (DD/MM/YYYY)."
-
-
-def _check_R08(fields, today):
-    ok = _present(fields, "expiry_date") or _present(fields, "best_before")
-    return ok, "Expiry date or best-before is declared." if ok else "Neither expiry date nor best-before is declared.", \
-        None if ok else "Declare either an expiry date or a best-before period."
+def _length_check(fields, key, minimum, good, bad, fix, skipped):
+    value = fields.get(key)
+    if not value:
+        return True, skipped, None
+    return _outcome(len(str(value)) >= minimum, good, bad, fix)
 
 
 def _check_R09(fields, today):
@@ -93,48 +66,55 @@ def _check_R10(fields, today):
         None if ok else "This product must not be sold — it is past its declared expiry date."
 
 
-def _check_R11(fields, today):
-    ok = _present(fields, "ingredients")
-    return ok, "Ingredients list is declared." if ok else "Ingredients list is missing.", \
-        None if ok else "Add a complete ingredients list (mandatory for most food/cosmetic commodities)."
+# (key, kind, pass_message, fail_message, recommendation) — kind drives the predicate.
+_CHECK_SPECS = {
+    "R01": ("product_name", "presence", "Product name is declared.", "Product name is missing.",
+            "Ensure the product's common/generic name is printed clearly on the label."),
+    "R02": ("commodity_category", "presence", "Commodity category is declared.", "Commodity category is missing.",
+            "Add the commodity/product category for correct classification."),
+    "R03": ("manufacturer_name", "presence", "Manufacturer name is declared.", "Manufacturer name is missing.",
+            "Print the manufacturer's/packer's/marketer's name on the label."),
+    "R04": ("manufacturer_address", "presence", "Manufacturer address is declared.", "Manufacturer address is missing.",
+            "Print the complete manufacturer address including PIN code."),
+    "R05": ("batch_number", "presence", "Batch/Lot number is present.", "Batch/Lot number is missing.",
+            "Add a batch or lot number for traceability and recall purposes."),
+    "R06": ("net_quantity", "presence", "Net quantity is declared with a valid unit.", "Net quantity is missing or invalid.",
+            "Declare net quantity using a standard unit, e.g. '500 g' or '1 L'."),
+    "R07": ("manufacturing_date", "date", "Manufacturing date is present and valid.", "Manufacturing date is missing or unrecognized.",
+            "Print the manufacturing/packing date in a standard format (DD/MM/YYYY)."),
+    "R08": (["expiry_date", "best_before"], "any_present", "Expiry date or best-before is declared.",
+            "Neither expiry date nor best-before is declared.", "Declare either an expiry date or a best-before period."),
+    "R11": ("ingredients", "presence", "Ingredients list is declared.", "Ingredients list is missing.",
+            "Add a complete ingredients list (mandatory for most food/cosmetic commodities)."),
+    "R12": ("license_number", "presence", "License/registration number is present.", "License/registration number is missing or invalid.",
+            "Add a valid regulatory license/registration number (e.g. 14-digit FSSAI number)."),
+    "R13": ("country_of_origin", "presence", "Country of origin is declared.", "Country of origin is missing.",
+            "Declare the country of origin as required under labelling regulations."),
+}
 
-
-def _check_R12(fields, today):
-    ok = _present(fields, "license_number")
-    return ok, "License/registration number is present." if ok else "License/registration number is missing or invalid.", \
-        None if ok else "Add a valid regulatory license/registration number (e.g. 14-digit FSSAI number)."
-
-
-def _check_R13(fields, today):
-    ok = _present(fields, "country_of_origin")
-    return ok, "Country of origin is declared." if ok else "Country of origin is missing.", \
-        None if ok else "Declare the country of origin as required under labelling regulations."
-
-
-def _check_R14(fields, today):
-    value = fields.get("batch_number")
-    if not value:
-        return True, "Batch length check skipped (no batch number).", None
-    ok = len(str(value)) >= 4
-    return ok, "Batch number length is adequate." if ok else "Batch number is shorter than recommended.", \
-        None if ok else "Use a batch/lot code of at least 4 characters for stronger traceability."
-
-
-def _check_R15(fields, today):
-    value = fields.get("ingredients")
-    if not value:
-        return True, "Ingredients length check skipped (no ingredients declared).", None
-    ok = len(str(value)) >= 8
-    return ok, "Ingredients list looks complete." if ok else "Ingredients list looks unusually short/truncated.", \
-        None if ok else "Re-check the label/photo — the ingredients list may be cut off or partially unreadable."
-
+_KINDS = {
+    "presence": lambda fields, key: _PRESENT(fields, key),
+    "date": lambda fields, key: _DATE(fields, key),
+    "any_present": lambda fields, keys: _ANY(fields, keys),
+}
 
 CHECK_FUNCTIONS = {
-    "R01": _check_R01, "R02": _check_R02, "R03": _check_R03, "R04": _check_R04,
-    "R05": _check_R05, "R06": _check_R06, "R07": _check_R07, "R08": _check_R08,
-    "R09": _check_R09, "R10": _check_R10, "R11": _check_R11, "R12": _check_R12,
-    "R13": _check_R13, "R14": _check_R14, "R15": _check_R15,
+    rid: (lambda f, t, k=key, kind=kind, good=good, bad=bad, fix=fix:
+          _outcome(_KINDS[kind](f, k), good, bad, fix))
+    for rid, (key, kind, good, bad, fix) in _CHECK_SPECS.items()
 }
+CHECK_FUNCTIONS.update({
+    "R09": _check_R09,
+    "R10": _check_R10,
+    "R14": lambda f, t: _length_check(f, "batch_number", 4,
+                                      "Batch number length is adequate.", "Batch number is shorter than recommended.",
+                                      "Use a batch/lot code of at least 4 characters for stronger traceability.",
+                                      "Batch length check skipped (no batch number)."),
+    "R15": lambda f, t: _length_check(f, "ingredients", 8,
+                                      "Ingredients list looks complete.", "Ingredients list looks unusually short/truncated.",
+                                      "Re-check the label/photo — the ingredients list may be cut off or partially unreadable.",
+                                      "Ingredients length check skipped (no ingredients declared)."),
+})
 
 
 def run_compliance_check(confirmed_fields, scan_date=None):

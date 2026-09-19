@@ -1,5 +1,5 @@
 ---
-version: 3
+version: 2
 last_updated: '2026-09-19T11:48:24Z'
 last_agent: refactor_agent
 workflow_id: wf-commoditech-001
@@ -10,7 +10,7 @@ status: planning
 Implement and verify an automated regulatory compliance scanning system for packaged commodities, integrating computer vision OCR, statutory rule evaluation, and formal PDF audit report generation.
 
 # Current Focus
-Consolidated backend helpers verified against full test suite.
+Verify Gemini-backed semantic extraction with currently supported model IDs.
 
 # Completed Work
 - [system @ 2026-09-19T16:15:00Z] — Initialized project workspace and baseline services.
