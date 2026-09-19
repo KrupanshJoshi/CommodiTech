@@ -18,7 +18,9 @@ import {
   LogOut,
   ChevronDown,
   Sun,
-  Moon
+  Moon,
+  Menu,
+  X
 } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
@@ -149,11 +151,18 @@ export const AppLayout: React.FC = () => {
       <div className="main-shell">
         {/* Topbar Header */}
         <header className="topbar">
-          <div className="flex items-center gap-3">
-            <div className="breadcrumb">
-              <span>{t('nav.workspace', 'Workspace')}</span>
-              <span>/</span>
-              <strong>{getActiveLabel()}</strong>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              className="lg:hidden icon-button text-[#173b46] dark:text-white"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <div className="breadcrumb min-w-0">
+              <span className="hidden sm:inline">{t('nav.workspace', 'Workspace')}</span>
+              <span className="hidden sm:inline">/</span>
+              <strong className="truncate">{getActiveLabel()}</strong>
             </div>
           </div>
 
@@ -231,7 +240,7 @@ export const AppLayout: React.FC = () => {
 
         {/* Mobile Navigation Drawer */}
         {mobileOpen && (
-          <div className="lg:hidden bg-[#fbfcfb] border-b border-[#e0e8e5] px-4 py-3 space-y-1">
+          <div className="lg:hidden bg-[#fbfcfb] dark:bg-[#142225] border-b border-[#e0e8e5] dark:border-[#22373a] px-4 py-3 space-y-1 z-30">
             {navItems.map(({ label, path, icon: Icon }) => (
               <Link
                 key={path}
@@ -251,9 +260,9 @@ export const AppLayout: React.FC = () => {
               <SettingsIcon size={18} />
               <span>{t('nav.settings', 'Settings')}</span>
             </Link>
-            <div className="pt-2 border-t border-[#edf1ef] flex justify-between items-center px-2">
-              <div className="text-xs font-semibold text-[#173b46]">{user?.full_name}</div>
-              <button onClick={handleLogout} className="text-xs text-[#b6504c] font-medium flex items-center gap-1">
+            <div className="pt-2 border-t border-[#edf1ef] dark:border-[#22373a] flex justify-between items-center px-2">
+              <div className="text-xs font-semibold text-[#173b46] dark:text-white truncate max-w-[180px]">{user?.full_name}</div>
+              <button onClick={handleLogout} className="text-xs text-[#b6504c] font-medium flex items-center gap-1 cursor-pointer">
                 <LogOut size={14} />
                 <span>Logout</span>
               </button>

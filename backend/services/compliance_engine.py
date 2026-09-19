@@ -180,7 +180,7 @@ def run_compliance_check(confirmed_fields, scan_date=None):
 
     if blocking_failure:
         status = "FAIL"
-        score = min(raw_score, 55)  # a blocking failure caps the displayed score
+        score = raw_score  # blocking failures no longer cap the displayed score
     elif raw_score >= 85:
         status = "PASS"
         score = raw_score

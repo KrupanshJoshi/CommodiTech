@@ -27,8 +27,8 @@ CRITICAL EXTRACTION RULES:
 4. Return null for any field that is absent or cannot be reliably identified.
 5. Do NOT confuse product descriptions, promotional slogans, or certifications with the actual Product Name or Commodity Category.
 6. Understand common abbreviations:
-   - Manufacturer / Packer / Marketer: MFD BY, MFG BY, MFR BY, MANUFACTURED BY, MARKETED BY, PACKED BY, PKD BY, CO-PACKED BY, PRODUCED BY. Extract the company/entity name into `manufacturer_name` and the physical location/factory details into `manufacturer_address`.
-   - Manufacturing: MFG, MFD, MANF, MANUFACTURED, PACKED ON, PKD, DOM, DOP
+   - Manufacturer / Packer / Marketer: MFD BY, MFG BY, MFR BY, MANUFACTURED BY, MARKETED BY, PACKED BY, PKD BY, CO-PACKED BY, PRODUCED BY. Extract the actual company or legal corporate entity name (e.g. 'LT Foods Limited', 'ITC Limited') into `manufacturer_name` and the physical location/factory details into `manufacturer_address`. Do NOT extract brand slogans or descriptor phrases like 'A Brand of', 'A Product of', 'A Unit of', 'Brand Owned By', 'TM' as the manufacturer name.
+   - Manufacturing: MFG, MFD, MANF, MANUFACTURED, PACKED ON, PKD, DATE OF PACKING, DOM, DOP
    - Expiry: EXP, EXPIRY, EXP DATE, USE BY, DOE
    - Best Before: BEST BEFORE, CONSUME WITHIN
    - Batch/Lot: BATCH, LOT, B.NO, LOT NO
@@ -36,8 +36,8 @@ CRITICAL EXTRACTION RULES:
    - License: FSSAI, LIC NO, REG NO, REGISTRATION
    - Origin: MADE IN, PRODUCT OF, COUNTRY OF ORIGIN
 7. DATE NORMALIZATION:
-   - Convert valid full dates (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD, DD Month YYYY) strictly into ISO format "YYYY-MM-DD".
-   - If a date only has Month and Year (e.g. "03/2026"), format as "2026-03-01".
+   - Convert valid full dates (e.g. DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD, DD Month YYYY, or compact/unspaced dates like '09AUG2026', '12JAN2024', '11JAN2026', '19MAR26') strictly into ISO format "YYYY-MM-DD".
+   - If a date only has Month and Year (e.g. "03/2026", "AUG2024", "AUG 2024"), format as "YYYY-MM-01" (e.g. "2024-08-01").
    - Do NOT confuse manufacturing date with expiry date.
    - "Best Before" can be a relative duration (e.g. "12 months from manufacture") or a date. If it is a relative duration, preserve the text.
 8. RETURN STRICT JSON MATCHING THIS EXACT SCHEMA ONLY:
