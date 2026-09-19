@@ -127,3 +127,7 @@ __v0_jsx-dev-runtime.ts
 ehthumbs.db
 Thumbs.db
 
+# uv stuff
+pyproject.toml
+uv.lock
+
