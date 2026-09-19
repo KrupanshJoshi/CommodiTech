@@ -75,7 +75,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const parent = node.parentElement;
       if (!parent) return true;
       const tag = parent.tagName.toLowerCase();
-      return ['script', 'style', 'noscript', 'textarea', 'input', 'option'].includes(tag) || parent.isContentEditable;
+      return ['script', 'style', 'noscript'].includes(tag) || parent.isContentEditable;
     };
 
     const scan = () => {
