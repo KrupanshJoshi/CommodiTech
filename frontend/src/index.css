@@ -1798,6 +1798,34 @@ td:first-child, th:first-child {
   .page-content {
     padding-left: 16px;
     padding-right: 16px;
+<<<<<<< HEAD
+=======
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell, .main-shell {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .scan-aside,
+  .review-aside,
+  .recommendations {
+    display: flex;
+    flex-direction: column;
+  }
+  .heading-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .heading-actions .primary-button,
+  .heading-actions .secondary-button {
+    flex: 1 1 auto;
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
   }
 }
 
@@ -1895,6 +1923,7 @@ td:first-child, th:first-child {
     width: 100%;
   }
   .workflow-step {
+<<<<<<< HEAD
     flex: 0 0 auto;
     min-width: 142px;
     min-height: 42px;
@@ -1902,6 +1931,14 @@ td:first-child, th:first-child {
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--surface);
+=======
+    min-width: 110px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .workflow-step:not(:last-child):after {
+    margin: 0 4px;
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
   }
   .commodity-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1913,6 +1950,7 @@ td:first-child, th:first-child {
   .quality-note {
     margin-left: 0;
     padding: 16px 12px;
+<<<<<<< HEAD
   }
   .upload-options {
     display: grid;
@@ -1972,6 +2010,8 @@ td:first-child, th:first-child {
     color: #869691;
     font-size: 10px;
     line-height: 1.35;
+=======
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
   }
   .form-actions {
     flex-direction: column-reverse;
@@ -2033,6 +2073,44 @@ td:first-child, th:first-child {
   .processing-card {
     padding: 24px 12px;
     min-height: 380px;
+<<<<<<< HEAD
+=======
+  }
+}
+
+@media (max-width: 440px) {
+  .commodity-grid {
+    grid-template-columns: 1fr;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .topbar {
+    padding: 0 8px;
+  }
+  .top-actions {
+    gap: 4px;
+  }
+  .icon-button {
+    padding: 4px;
+  }
+  .language-select, .select-button {
+    padding: 0 4px;
+    height: 28px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .avatar-small {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+  .page-content {
+    padding: 12px 8px 28px;
+  }
+  .panel {
+    padding: 12px 10px;
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
   }
 }
 

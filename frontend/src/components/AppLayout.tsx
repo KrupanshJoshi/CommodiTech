@@ -151,6 +151,7 @@ export const AppLayout: React.FC = () => {
       <div className="main-shell">
         {/* Topbar Header */}
         <header className="topbar">
+<<<<<<< HEAD
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
@@ -165,6 +166,20 @@ export const AppLayout: React.FC = () => {
               <span>{t('nav.workspace', 'Workspace')}</span>
               <span>/</span>
               <strong>{getActiveLabel()}</strong>
+=======
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              className="lg:hidden icon-button text-[#173b46] dark:text-white"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <div className="breadcrumb min-w-0">
+              <span className="hidden sm:inline">{t('nav.workspace', 'Workspace')}</span>
+              <span className="hidden sm:inline">/</span>
+              <strong className="truncate">{getActiveLabel()}</strong>
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
             </div>
           </div>
 
@@ -242,6 +257,7 @@ export const AppLayout: React.FC = () => {
 
         {/* Mobile Navigation Drawer */}
         {mobileOpen && (
+<<<<<<< HEAD
           <>
             <button
               type="button"
@@ -283,6 +299,34 @@ export const AppLayout: React.FC = () => {
                   <span>{t('nav.logout', 'Sign Out')}</span>
                 </button>
               </div>
+=======
+          <div className="lg:hidden bg-[#fbfcfb] dark:bg-[#142225] border-b border-[#e0e8e5] dark:border-[#22373a] px-4 py-3 space-y-1 z-30">
+            {navItems.map(({ label, path, icon: Icon }) => (
+              <Link
+                key={path}
+                to={path}
+                onClick={() => setMobileOpen(false)}
+                className={`nav-item ${location.pathname === path ? 'nav-item-active' : ''}`}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            ))}
+            <Link
+              to="/settings"
+              onClick={() => setMobileOpen(false)}
+              className={`nav-item ${location.pathname === '/settings' ? 'nav-item-active' : ''}`}
+            >
+              <SettingsIcon size={18} />
+              <span>{t('nav.settings', 'Settings')}</span>
+            </Link>
+            <div className="pt-2 border-t border-[#edf1ef] dark:border-[#22373a] flex justify-between items-center px-2">
+              <div className="text-xs font-semibold text-[#173b46] dark:text-white truncate max-w-[180px]">{user?.full_name}</div>
+              <button onClick={handleLogout} className="text-xs text-[#b6504c] font-medium flex items-center gap-1 cursor-pointer">
+                <LogOut size={14} />
+                <span>Logout</span>
+              </button>
+>>>>>>> 8be297d (Apply selected compliance and mobile improvements)
             </div>
           </>
         )}
