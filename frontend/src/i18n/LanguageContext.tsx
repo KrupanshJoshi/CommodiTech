@@ -4,6 +4,7 @@ import hi from './locales/hi.json';
 import gu from './locales/gu.json';
 import mr from './locales/mr.json';
 import ta from './locales/ta.json';
+import { translateUiText, translateUiAttributes } from './uiTranslations';
 
 export type SupportedLanguage = 'en' | 'hi' | 'gu' | 'mr' | 'ta';
 
@@ -60,6 +61,59 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch {
       // Ignore storage error
     }
+  }, [language]);
+
+  // Translate legacy hard-coded UI strings that have not yet been migrated to
+  // t(). This keeps all five existing languages consistent across every page.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const textState = new WeakMap<Text, { source: string; rendered: string }>();
+    const attrState = new WeakMap<Element, Record<string, { source: string; rendered: string }>>();
+
+    const shouldSkip = (node: Node) => {
+      const parent = node.parentElement;
+      if (!parent) return true;
+      const tag = parent.tagName.toLowerCase();
+      return ['script', 'style', 'noscript', 'textarea', 'input', 'option'].includes(tag) || parent.isContentEditable;
+    };
+
+    const scan = () => {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        if (shouldSkip(node)) continue;
+        const textNode = node as Text;
+        const current = textNode.nodeValue || '';
+        const state = textState.get(textNode);
+        const source = state && current === state.rendered ? state.source : current;
+        if (!source.trim()) continue;
+        const translated = translateUiText(source, language);
+        textState.set(textNode, { source, rendered: translated });
+        if (translated !== current) textNode.nodeValue = translated;
+      }
+
+      const elements = document.querySelectorAll<HTMLElement>('input, textarea, [title], [aria-label], input[placeholder], textarea[placeholder]');
+      elements.forEach((element) => {
+        const attrs = ['placeholder', 'title', 'aria-label'];
+        const previous = attrState.get(element) || {};
+        attrs.forEach((attr) => {
+          const current = element.getAttribute(attr);
+          if (!current) return;
+          const old = previous[attr];
+          const source = old && current === old.rendered ? old.source : current;
+          const translated = translateUiAttributes(source, language);
+          previous[attr] = { source, rendered: translated };
+          if (translated !== current) element.setAttribute(attr, translated);
+        });
+        attrState.set(element, previous);
+      });
+    };
+
+    scan();
+    const observer = new MutationObserver(() => scan());
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title', 'aria-label'] });
+    return () => observer.disconnect();
   }, [language]);
 
   const setLanguage = (lang: SupportedLanguage) => {
