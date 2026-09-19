@@ -228,7 +228,7 @@ export const Dashboard: React.FC = () => {
             <Clock3 size={18} />
           </div>
           <div className="stat-copy">
-            <span>{t('dashboard.pending_count', 'Pending review')}</span>
+            <span>{t('dashboard.pending_review', 'Pending review')}</span>
             <strong>{pendingCount ?? (loading ? '—' : 0)}</strong>
             <small className="amber-text">Needs attention</small>
           </div>

@@ -41,6 +41,15 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+// Keep the original English source text across language changes.
+// This is important because the legacy DOM translator rewrites text nodes;
+// without persistent source tracking, switching Hindi -> Gujarati would try
+// to translate the already-translated Hindi text and leave it unchanged until
+// a full page reload.
+const legacyTextState = new WeakMap<Text, { source: string; rendered: string }>();
+const legacyAttrState = new WeakMap<Element, Record<string, { source: string; rendered: string }>>();
+
+
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<SupportedLanguage>(() => {
     try {
@@ -68,8 +77,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
-    const textState = new WeakMap<Text, { source: string; rendered: string }>();
-    const attrState = new WeakMap<Element, Record<string, { source: string; rendered: string }>>();
 
     const shouldSkip = (node: Node) => {
       const parent = node.parentElement;
@@ -85,18 +92,18 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (shouldSkip(node)) continue;
         const textNode = node as Text;
         const current = textNode.nodeValue || '';
-        const state = textState.get(textNode);
+        const state = legacyTextState.get(textNode);
         const source = state && current === state.rendered ? state.source : current;
         if (!source.trim()) continue;
         const translated = translateUiText(source, language);
-        textState.set(textNode, { source, rendered: translated });
+        legacyTextState.set(textNode, { source, rendered: translated });
         if (translated !== current) textNode.nodeValue = translated;
       }
 
       const elements = document.querySelectorAll<HTMLElement>('input, textarea, [title], [aria-label], input[placeholder], textarea[placeholder]');
       elements.forEach((element) => {
         const attrs = ['placeholder', 'title', 'aria-label'];
-        const previous = attrState.get(element) || {};
+        const previous = legacyAttrState.get(element) || {};
         attrs.forEach((attr) => {
           const current = element.getAttribute(attr);
           if (!current) return;
@@ -106,7 +113,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           previous[attr] = { source, rendered: translated };
           if (translated !== current) element.setAttribute(attr, translated);
         });
-        attrState.set(element, previous);
+        legacyAttrState.set(element, previous);
       });
     };
 
