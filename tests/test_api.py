@@ -306,3 +306,35 @@ def test_settings_profile_update(client, auth_header):
     assert up_res.status_code == 200
     assert up_res.get_json()["user"]["full_name"] == "Chief Inspector Rajesh Kumar"
     assert up_res.get_json()["user"]["organization"] == "Central Quality Regulatory Directorate"
+
+
+# ==========================================
+# 7. Database Configuration & Engine Options
+# ==========================================
+def test_database_uri_normalization(monkeypatch):
+    from config import _database_uri
+
+    # Standard postgresql:// should normalize to postgresql+psycopg://
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/db")
+    assert _database_uri() == "postgresql+psycopg://user:pass@host:5432/db"
+
+    # Legacy postgres:// should normalize to postgresql+psycopg://
+    monkeypatch.setenv("DATABASE_URL", "postgres://user:pass@host:5432/db")
+    assert _database_uri() == "postgresql+psycopg://user:pass@host:5432/db"
+
+    # Driver already specified should be preserved
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@host:5432/db")
+    assert _database_uri() == "postgresql+psycopg://user:pass@host:5432/db"
+
+
+def test_supabase_pooler_engine_options():
+    from config import _database_engine_options
+    from sqlalchemy.pool import NullPool
+
+    pooler_uri = "postgresql+psycopg://postgres.ref:pass@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+    opts = _database_engine_options(pooler_uri)
+
+    # Supabase transaction pooler requires NullPool and prepare_threshold=None
+    assert opts.get("poolclass") is NullPool
+    assert opts.get("connect_args", {}).get("prepare_threshold") is None
+

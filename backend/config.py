@@ -25,6 +25,47 @@ def _cors_origins(value):
     return "*" if origins == ["*"] else tuple(origins)
 
 
+def _database_uri():
+    """Retrieve and normalize database URI for SQLAlchemy 2.0 + psycopg 3."""
+    raw = os.environ.get("DATABASE_URL")
+    if not raw:
+        db_dir = os.environ.get(
+            "DATABASE_DIR", os.path.join(BASE_DIR, "backend", "database")
+        )
+        db_path = os.environ.get(
+            "DATABASE_PATH", os.path.join(db_dir, "compliance_scanner.db")
+        )
+        return f"sqlite:///{db_path}"
+
+    cleaned = raw.strip().strip("'\"")
+    # Normalize postgres driver for SQLAlchemy 2.0 + psycopg 3
+    if cleaned.startswith("postgres://"):
+        cleaned = "postgresql+psycopg://" + cleaned[len("postgres://"):]
+    elif cleaned.startswith("postgresql://") and not cleaned.startswith("postgresql+"):
+        cleaned = "postgresql+psycopg://" + cleaned[len("postgresql://"):]
+    return cleaned
+
+
+def _database_engine_options(uri: str):
+    """Engine options optimized for Supabase transaction poolers and production databases."""
+    options = {}
+    if uri.startswith("postgresql"):
+        # Supabase transaction pooler (port 6543) or Supavisor:
+        # Transaction pooling mode resets connections after each transaction.
+        # Prepared statements must be disabled (prepare_threshold=None) and
+        # client-side pooling must use NullPool to avoid stale/broken socket hangs.
+        if ":6543" in uri or "pooler.supabase.com" in uri:
+            from sqlalchemy.pool import NullPool
+            options["poolclass"] = NullPool
+            options["connect_args"] = {
+                "prepare_threshold": None,
+            }
+        else:
+            options["pool_pre_ping"] = True
+            options["pool_recycle"] = 300
+    return options
+
+
 class Config:
     # --- Core ---
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
@@ -41,9 +82,8 @@ class Config:
     DATABASE_PATH = os.environ.get(
         "DATABASE_PATH", os.path.join(DATABASE_DIR, "compliance_scanner.db")
     )
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", f"sqlite:///{DATABASE_PATH}"
-    )
+    SQLALCHEMY_DATABASE_URI = _database_uri()
+    SQLALCHEMY_ENGINE_OPTIONS = _database_engine_options(SQLALCHEMY_DATABASE_URI)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # --- Uploads / Reports ---
@@ -78,6 +118,7 @@ class TestingConfig(Config):
     TESTING = True
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     WTF_CSRF_ENABLED = False
 
 

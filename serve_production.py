@@ -129,6 +129,37 @@ def main():
 
     # Check if a dedicated production WSGI server is installed
     try:
+        import gunicorn.app.base
+
+        class StandaloneApplication(gunicorn.app.base.BaseApplication):
+            def __init__(self, app, options=None):
+                self.options = options or {}
+                self.application = app
+                super().__init__()
+
+            def load_config(self):
+                config = {key: value for key, value in self.options.items()
+                          if key in self.cfg.settings and value is not None}
+                for key, value in config.items():
+                    self.cfg.set(key.lower(), value)
+
+            def load(self):
+                return self.application
+
+        options = {
+            "bind": f"{args.host}:{args.port}",
+            "workers": int(os.environ.get("WEB_CONCURRENCY", "2")),
+            "timeout": int(os.environ.get("GUNICORN_TIMEOUT", "120")),
+            "accesslog": "-",
+            "errorlog": "-",
+        }
+        logger.info("Using Gunicorn production WSGI server (%s workers on %s:%s).", options["workers"], args.host, args.port)
+        StandaloneApplication(app, options).run()
+        return
+    except ImportError:
+        pass
+
+    try:
         import waitress
         logger.info("Using Waitress production WSGI server.")
         waitress.serve(app, host=args.host, port=args.port)

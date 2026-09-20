@@ -1,7 +1,7 @@
 ---
-version: 3
-last_updated: '2026-09-20T00:00:00Z'
-last_agent: codex
+version: 5
+last_updated: '2026-09-20T15:10:12Z'
+last_agent: database_agent
 workflow_id: wf-commoditech-001
 status: active
 ---
@@ -25,6 +25,10 @@ Maintain and verify responsive frontend behavior across phone, tablet, and deskt
 - [frontend_agent @ 2026-09-19T12:50:00Z] — Removed the remaining 900–1000px responsive gap by aligning the compact drawer and stacked-layout breakpoint with the existing 1000px tablet breakpoint.
 - [codex @ 2026-09-20T00:00:00Z] — Configured API-only CORS with a comma-separated `CORS_ORIGINS` allowlist, local Vite defaults, authorization/content-type preflight support, and a 24-hour preflight cache. Cookie credentials are not enabled because authentication uses bearer tokens.
 - [codex @ 2026-09-20T00:00:00Z] — Switched deployment database configuration to Supabase PostgreSQL through `DATABASE_URL`; added the Psycopg PostgreSQL driver. SQLite remains only as an unset-configuration local fallback.
+- [codex @ 2026-09-20T00:00:00Z] — Diagnosed production startup failures: `DATABASE_URL` was being read correctly, but Supabase direct-host DNS resolved to IPv6 and the deployment runtime had no IPv6 route (`Network is unreachable`). Recommended Supabase pooler endpoint `aws-0-ap-northeast-1.pooler.supabase.com` on port `6543` and the SQLAlchemy driver URL scheme `postgresql+psycopg://`.
+- [codex @ 2026-09-20T00:00:00Z] — Diagnosed the follow-up pooler failure as a malformed connection URL: the database password contained reserved URL characters (including `@`) and the configured hostname contained an actual line break after `aws-`. Provided the URL-encoded format and instructed deployment to store `DATABASE_URL` as one logical line, save it, and redeploy. No application code changes were required.
+- [codex @ 2026-09-20T00:00:00Z] — The database password was exposed during troubleshooting; password rotation in Supabase is required, followed by updating the deployment environment variable with the newly URL-encoded password.
+- [database_agent @ 2026-09-20T15:10:12Z] — Resolved 502 Bad Gateway with Supabase IPv4 pooler (port 6543) on Railway: configured NullPool to prevent conflict with transaction pooler connection cycling, disabled prepared statements (prepare_threshold=None) required by Supavisor/PgBouncer, added postgresql URI normalization, and integrated Gunicorn WSGI server in serve_production.py to prevent proxy drops.
 
 # Open Questions / Blockers
 - [system @ 2026-09-19T16:15:00Z] — Validate OCR accuracy threshold across diverse packaging label conditions.
@@ -39,5 +43,8 @@ On screens up to 1000px, the New Scan upload section offers upload/drop and came
 
 For the single Docker image, the compiled frontend and `/api` are served by the same origin, so no hosting CORS change is needed. If the frontend is hosted separately (such as Vercel), set the backend container environment variable `CORS_ORIGINS=https://your-frontend-domain` (comma-separate multiple exact origins; no trailing slash) and build the frontend with `VITE_API_BASE_URL=https://your-api-domain/api`. Do not use `*` in production.
 
+Deployment database handoff: configure `DATABASE_URL` in the hosting provider (the Dockerfile intentionally does not copy `.env`) using the Supabase pooler host/port, `postgresql+psycopg` scheme, `sslmode=require`, URL-encoded credentials, and no embedded whitespace/newlines. Rotate the previously exposed password before considering deployment credentials safe.
+
 # Decision Log
 - [2026-09-19T16:15:00Z] DECISION: Use lightweight markdown context store | RATIONALE: Zero-overhead persistence across agent sessions | ALTERNATIVES: Heavy database state, external Redis
+- [2026-09-20T15:10:12Z] DECISION: Use NullPool and prepare_threshold=None for Supabase pooler on port 6543 | RATIONALE: Supavisor transaction pooler does not support prepared statements and manages pooling at transaction boundary; SQLAlchemy connection pooling causes stale socket timeouts resulting in 502 Bad Gateway. | ALTERNATIVES: Persistent QueuePool without statement disabling
