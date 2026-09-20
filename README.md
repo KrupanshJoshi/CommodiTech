@@ -1,4 +1,4 @@
-# Commodity Compliance Scanner — Full Stack
+# Commodity Compliance Scanner —> Full Stack
 
 Smart India Hackathon (SIH) 2026 Problem Statement.
 
