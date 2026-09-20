@@ -6,9 +6,43 @@ from config import CONFIG_MAP
 from extensions import db, CORS
 
 
+class CorsWsgiMiddleware:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        if environ.get("REQUEST_METHOD") == "OPTIONS":
+            headers = [
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH"),
+                ("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept"),
+                ("Access-Control-Max-Age", "86400"),
+                ("Content-Length", "0"),
+            ]
+            start_response("204 No Content", headers)
+            return [b""]
+
+        def custom_start_response(status, headers, exc_info=None):
+            headers = [
+                h for h in headers
+                if h[0].lower() not in (
+                    "access-control-allow-origin",
+                    "access-control-allow-methods",
+                    "access-control-allow-headers",
+                )
+            ]
+            headers.append(("Access-Control-Allow-Origin", "*"))
+            headers.append(("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH"))
+            headers.append(("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept"))
+            return start_response(status, headers, exc_info)
+
+        return self.wsgi_app(environ, custom_start_response)
+
+
 def create_app(config_name="default"):
     app = Flask(__name__)
     app.config.from_object(CONFIG_MAP.get(config_name, CONFIG_MAP["default"]))
+    app.wsgi_app = CorsWsgiMiddleware(app.wsgi_app)
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(app.config["REPORT_FOLDER"], exist_ok=True)

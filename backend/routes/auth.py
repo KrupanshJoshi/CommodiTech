@@ -9,8 +9,10 @@ from utils.decorators import login_required
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
-@auth_bp.post("/register")
+@auth_bp.route("/register", methods=["POST", "OPTIONS"])
 def register():
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json(silent=True) or {}
     full_name = (data.get("full_name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -42,8 +44,10 @@ def register():
     }), 201
 
 
-@auth_bp.post("/login")
+@auth_bp.route("/login", methods=["POST", "OPTIONS"])
 def login():
+    if request.method == "OPTIONS":
+        return "", 204
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
