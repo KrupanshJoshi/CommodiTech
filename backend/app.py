@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from config import CONFIG_MAP
@@ -15,8 +15,29 @@ def create_app(config_name="default"):
     if app.config.get("DATABASE_DIR"):
         os.makedirs(app.config["DATABASE_DIR"], exist_ok=True)
 
-    CORS(app, origins=app.config.get("CORS_ORIGINS", "*"), supports_credentials=True)
+    CORS(
+        app,
+        resources={r"/*": {"origins": "*"}},
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    )
     db.init_app(app)
+
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        return response
+
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            return response
 
     # Import models so they are registered with the ORM before create_all()
     from models import User, Scan, Report  # noqa: F401
@@ -35,6 +56,23 @@ def create_app(config_name="default"):
                 conn.commit()
         except Exception as mig_err:
             app.logger.warning(f"Schema migration check: {mig_err}")
+
+        # Seed default inspector demo account if not exists
+        try:
+            demo_user = User.query.filter_by(email="inspector@fssai.gov.in").first()
+            if not demo_user:
+                demo_user = User(
+                    full_name="Senior Inspector Ramesh Rao",
+                    email="inspector@fssai.gov.in",
+                    organization="Legal Metrology Division",
+                    role="inspector",
+                )
+                demo_user.set_password("demo123456")
+                db.session.add(demo_user)
+                db.session.commit()
+                app.logger.info("Seeded default demo inspector: inspector@fssai.gov.in")
+        except Exception as seed_err:
+            app.logger.warning(f"Demo user seed check: {seed_err}")
 
     from services.ocr_service import configure_tesseract
     configure_tesseract(app.config.get("TESSERACT_CMD"))
