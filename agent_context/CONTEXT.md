@@ -24,6 +24,7 @@ Maintain and verify responsive frontend behavior across phone, tablet, and deskt
 - [frontend_agent @ 2026-09-19T12:47:31Z] — Reworked New Scan workflow indicators from circular badges to compact rounded number labels, eliminating the cramped tablet appearance. Expanded the drawer and stacked responsive layout breakpoint from 680px to 900px so tablets use the stable compact interface. Frontend production build passes.
 - [frontend_agent @ 2026-09-19T12:50:00Z] — Removed the remaining 900–1000px responsive gap by aligning the compact drawer and stacked-layout breakpoint with the existing 1000px tablet breakpoint.
 - [codex @ 2026-09-20T00:00:00Z] — Configured API-only CORS with a comma-separated `CORS_ORIGINS` allowlist, local Vite defaults, authorization/content-type preflight support, and a 24-hour preflight cache. Cookie credentials are not enabled because authentication uses bearer tokens.
+- [codex @ 2026-09-20T00:00:00Z] — Switched deployment database configuration to Supabase PostgreSQL through `DATABASE_URL`; added the Psycopg PostgreSQL driver. SQLite remains only as an unset-configuration local fallback.
 
 # Open Questions / Blockers
 - [system @ 2026-09-19T16:15:00Z] — Validate OCR accuracy threshold across diverse packaging label conditions.

@@ -32,18 +32,19 @@ def create_app(config_name="default"):
 
     with app.app_context():
         db.create_all()
-        # Auto-migrate SQLite schema for newly added columns
-        try:
-            with db.engine.connect() as conn:
-                res = conn.execute(db.text("PRAGMA table_info(scans)"))
-                existing_cols = {row[1] for row in res.fetchall()}
-                if "image_quality_score" not in existing_cols:
-                    conn.execute(db.text("ALTER TABLE scans ADD COLUMN image_quality_score INTEGER"))
-                if "image_quality_status" not in existing_cols:
-                    conn.execute(db.text("ALTER TABLE scans ADD COLUMN image_quality_status VARCHAR(30)"))
-                conn.commit()
-        except Exception as mig_err:
-            app.logger.warning(f"Schema migration check: {mig_err}")
+        # Auto-migrate columns only for the legacy SQLite database.
+        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+            try:
+                with db.engine.connect() as conn:
+                    res = conn.execute(db.text("PRAGMA table_info(scans)"))
+                    existing_cols = {row[1] for row in res.fetchall()}
+                    if "image_quality_score" not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE scans ADD COLUMN image_quality_score INTEGER"))
+                    if "image_quality_status" not in existing_cols:
+                        conn.execute(db.text("ALTER TABLE scans ADD COLUMN image_quality_status VARCHAR(30)"))
+                    conn.commit()
+            except Exception as mig_err:
+                app.logger.warning(f"Schema migration check: {mig_err}")
 
     from services.ocr_service import configure_tesseract
     configure_tesseract(app.config.get("TESSERACT_CMD"))

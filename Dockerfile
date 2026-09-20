@@ -38,7 +38,7 @@ COPY backend/ ./backend/
 COPY serve_production.py ./
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# The application writes its SQLite database, uploads, and generated reports.
+# The application writes uploads and generated reports. SQLite remains a local fallback.
 RUN mkdir -p backend/database backend/uploads backend/reports \
     && useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app
