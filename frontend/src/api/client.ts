@@ -12,7 +12,15 @@ import type {
   RuleDefinition,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+function getApiBase(): string {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (!envUrl) {
+    return '/api';
+  }
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+}
+
+const API_BASE = getApiBase();
 
 export class ApiError extends Error {
   status: number;
