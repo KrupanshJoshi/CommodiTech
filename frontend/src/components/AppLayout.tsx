@@ -151,18 +151,20 @@ export const AppLayout: React.FC = () => {
       <div className="main-shell">
         {/* Topbar Header */}
         <header className="topbar">
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
-              className="lg:hidden icon-button text-[#173b46] dark:text-white"
+              type="button"
+              className="mobile-menu-toggle"
               onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Toggle mobile menu"
+              aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileOpen}
             >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
-            <div className="breadcrumb min-w-0">
-              <span className="hidden sm:inline">{t('nav.workspace', 'Workspace')}</span>
-              <span className="hidden sm:inline">/</span>
-              <strong className="truncate">{getActiveLabel()}</strong>
+            <div className="breadcrumb">
+              <span>{t('nav.workspace', 'Workspace')}</span>
+              <span>/</span>
+              <strong>{getActiveLabel()}</strong>
             </div>
           </div>
 
@@ -240,34 +242,49 @@ export const AppLayout: React.FC = () => {
 
         {/* Mobile Navigation Drawer */}
         {mobileOpen && (
-          <div className="lg:hidden bg-[#fbfcfb] dark:bg-[#142225] border-b border-[#e0e8e5] dark:border-[#22373a] px-4 py-3 space-y-1 z-30">
-            {navItems.map(({ label, path, icon: Icon }) => (
-              <Link
-                key={path}
-                to={path}
-                onClick={() => setMobileOpen(false)}
-                className={`nav-item ${location.pathname === path ? 'nav-item-active' : ''}`}
-              >
-                <Icon size={18} />
-                <span>{label}</span>
-              </Link>
-            ))}
-            <Link
-              to="/settings"
+          <>
+            <button
+              type="button"
+              className="mobile-nav-backdrop"
+              aria-label="Close navigation menu"
               onClick={() => setMobileOpen(false)}
-              className={`nav-item ${location.pathname === '/settings' ? 'nav-item-active' : ''}`}
-            >
-              <SettingsIcon size={18} />
-              <span>{t('nav.settings', 'Settings')}</span>
-            </Link>
-            <div className="pt-2 border-t border-[#edf1ef] dark:border-[#22373a] flex justify-between items-center px-2">
-              <div className="text-xs font-semibold text-[#173b46] dark:text-white truncate max-w-[180px]">{user?.full_name}</div>
-              <button onClick={handleLogout} className="text-xs text-[#b6504c] font-medium flex items-center gap-1 cursor-pointer">
-                <LogOut size={14} />
-                <span>Logout</span>
-              </button>
+            />
+            <div className="mobile-nav-drawer">
+              <div className="mobile-nav-label">{t('nav.workspace_section', 'WORKSPACE')}</div>
+              {navItems.map(({ label, path, icon: Icon }) => (
+                <Link
+                  key={path}
+                  to={path}
+                  onClick={() => setMobileOpen(false)}
+                  className={`nav-item ${location.pathname === path || (path !== '/' && location.pathname.startsWith(path)) ? 'nav-item-active' : ''}`}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </Link>
+              ))}
+              <Link
+                to="/settings"
+                onClick={() => setMobileOpen(false)}
+                className={`nav-item ${location.pathname === '/settings' ? 'nav-item-active' : ''}`}
+              >
+                <SettingsIcon size={18} />
+                <span>{t('nav.settings', 'Settings')}</span>
+              </Link>
+              <div className="mobile-nav-footer">
+                <div className="mobile-nav-user">
+                  <div className="avatar">{getInitials(user?.full_name)}</div>
+                  <div>
+                    <div className="profile-name">{user?.full_name || 'Officer'}</div>
+                    <div className="profile-role">{user?.organization || 'Compliance officer'}</div>
+                  </div>
+                </div>
+                <button onClick={handleLogout} className="mobile-nav-logout">
+                  <LogOut size={14} />
+                  <span>{t('nav.logout', 'Sign Out')}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Page Content View */}

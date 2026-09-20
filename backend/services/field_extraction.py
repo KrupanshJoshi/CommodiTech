@@ -103,6 +103,32 @@ FIELD_PATTERNS = {
 }
 
 
+def _result(value=None, confidence=None, status="not_detected", reason="not_detected",
+            raw_match=None, source="heuristic_fallback"):
+    return {
+        "value": value,
+        "confidence": confidence,
+        "status": status,
+        "reason": reason,
+        "raw_match": raw_match,
+        "source": source,
+    }
+
+
+def _empty(source="none", reason="not_detected"):
+    return _result(reason=reason, source=source)
+
+
+def _matched(clean, confidence, threshold, raw_match, source, reason=None):
+    low = confidence < threshold
+    return _result(
+        clean, confidence,
+        "needs_review" if low else "auto_extracted",
+        reason if reason is not None else ("low_ocr_confidence" if low else None),
+        raw_match, source,
+    )
+
+
 def is_garbage_value(value):
     """Generic cross-field junk detector. Returns True if the value is
     almost certainly OCR noise or invalid placeholder content."""
@@ -343,17 +369,7 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
     
     # Use full_text splitlines if words layout didn't produce lines
     active_lines = line_texts if len(line_texts) >= len(raw_lines) else raw_lines
-    results = {}
-
-    for f in REQUIRED_FIELDS:
-        results[f] = {
-            "value": None,
-            "confidence": None,
-            "status": "not_detected",
-            "reason": "not_detected",
-            "raw_match": None,
-            "source": "heuristic_fallback",
-        }
+    results = {f: _empty("heuristic_fallback") for f in REQUIRED_FIELDS}
 
     # Helper: Check same-line and next-line(s) lookahead
     def find_field_in_lines(field_name, label_regex, val_regex=None, max_lookahead=2):
@@ -400,14 +416,9 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
                 matched_w = _find_words_for_value(raw_val, words)
                 conf = _line_confidence(matched_w, raw_val) or 80.0
                 if clean_val is not None:
-                    results[field_name] = {
-                        "value": clean_val,
-                        "confidence": conf,
-                        "status": "needs_review" if conf < low_confidence_threshold else "auto_extracted",
-                        "reason": "low_ocr_confidence" if conf < low_confidence_threshold else None,
-                        "raw_match": raw_val,
-                        "source": "heuristic_fallback",
-                    }
+                    results[field_name] = _matched(
+                        clean_val, conf, low_confidence_threshold, raw_val, "heuristic_fallback"
+                    )
                     break
 
     # 1b. Multi-Line Lookahead for fields not resolved by single-line regex
@@ -433,14 +444,9 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
                 if clean_val is not None:
                     matched_w = _find_words_for_value(clean_val, words)
                     conf = _line_confidence(matched_w, clean_val) or 80.0
-                    results[f_name] = {
-                        "value": clean_val,
-                        "confidence": conf,
-                        "status": "needs_review" if conf < low_confidence_threshold else "auto_extracted",
-                        "reason": "low_ocr_confidence" if conf < low_confidence_threshold else None,
-                        "raw_match": cand,
-                        "source": "heuristic_fallback",
-                    }
+                    results[f_name] = _matched(
+                        clean_val, conf, low_confidence_threshold, cand, "heuristic_fallback"
+                    )
 
     # 1c. Multi-Line Manufacturer Address Aggregator
     if results["manufacturer_address"]["value"] is None:
@@ -471,14 +477,11 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
             if clean_addr:
                 matched_w = _find_words_for_value(clean_addr, words)
                 conf = _line_confidence(matched_w, clean_addr) or 82.0
-                results["manufacturer_address"] = {
-                    "value": clean_addr,
-                    "confidence": conf,
-                    "status": "needs_review" if conf < low_confidence_threshold else "auto_extracted",
-                    "reason": None,
-                    "raw_match": combined_addr,
-                    "source": "heuristic_fallback",
-                }
+                results["manufacturer_address"] = _result(
+                    clean_addr, conf,
+                    "needs_review" if conf < low_confidence_threshold else "auto_extracted",
+                    None, combined_addr, "heuristic_fallback",
+                )
 
     # 2. Product Name Fallback
     pname_patterns = FIELD_PATTERNS["product_name"]
@@ -491,14 +494,11 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
             if clean_val:
                 matched_w = _find_words_for_value(clean_val, words)
                 conf = _line_confidence(matched_w, clean_val) or 85.0
-                results["product_name"] = {
-                    "value": clean_val,
-                    "confidence": conf,
-                    "status": "needs_review" if conf < low_confidence_threshold else "auto_extracted",
-                    "reason": None,
-                    "raw_match": raw_pname,
-                    "source": "heuristic_fallback",
-                }
+                results["product_name"] = _result(
+                    clean_val, conf,
+                    "needs_review" if conf < low_confidence_threshold else "auto_extracted",
+                    None, raw_pname, "heuristic_fallback",
+                )
                 break
 
     if results["product_name"]["value"] is None and active_lines:
@@ -508,14 +508,10 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
             if lt_clean.lower() in ("ingredients:", "pure & natural", "premium quality", "tm", "since 1930"):
                 continue
             if len(lt_clean) >= 3 and not re.search(r"(batch|mfg|exp|net|fssai|lic|plot|energy|protein|fat|sodium|carbohydrate|nutritional)", lt_clean, re.I):
-                results["product_name"] = {
-                    "value": lt_clean,
-                    "confidence": 75.0,
-                    "status": "auto_extracted",
-                    "reason": "heuristic_positional",
-                    "raw_match": lt_clean,
-                    "source": "heuristic_fallback",
-                }
+                results["product_name"] = _result(
+                    lt_clean, 75.0, "auto_extracted", "heuristic_positional",
+                    lt_clean, "heuristic_fallback",
+                )
                 break
 
     # 3. Commodity Category Inference
@@ -524,27 +520,19 @@ def extract_fields_with_heuristics(full_text, words, low_confidence_threshold=60
         search_target = f"{pname_val}\n{full_text}"
         for cat_regex, category_name in COMMODITY_CATEGORIES:
             if re.search(cat_regex, search_target, re.IGNORECASE):
-                results["commodity_category"] = {
-                    "value": category_name,
-                    "confidence": 90.0,
-                    "status": "auto_extracted",
-                    "reason": None,
-                    "raw_match": category_name,
-                    "source": "heuristic_fallback",
-                }
+                results["commodity_category"] = _result(
+                    category_name, 90.0, "auto_extracted", None,
+                    category_name, "heuristic_fallback",
+                )
                 break
 
     # 4. Country of Origin Inference
     if results["country_of_origin"]["value"] is None:
         if re.search(r"\b(?:India|Bharat)\b", full_text, re.I):
-            results["country_of_origin"] = {
-                "value": "India",
-                "confidence": 90.0,
-                "status": "auto_extracted",
-                "reason": None,
-                "raw_match": "India",
-                "source": "heuristic_fallback",
-            }
+            results["country_of_origin"] = _result(
+                "India", 90.0, "auto_extracted", None,
+                "India", "heuristic_fallback",
+            )
 
     return results
 
@@ -577,17 +565,7 @@ def extract_fields(ocr_input, words=None, low_confidence_threshold=60):
 
     if not raw_text.strip():
         # Empty OCR
-        empty_res = {}
-        for f in REQUIRED_FIELDS:
-            empty_res[f] = {
-                "value": None,
-                "confidence": None,
-                "status": "not_detected",
-                "reason": "empty_ocr_text",
-                "raw_match": None,
-                "source": "none",
-            }
-        return empty_res
+        return {f: _empty("none", "empty_ocr_text") for f in REQUIRED_FIELDS}
 
     # 1. Execute AI Semantic Field Extraction
     ai_result = run_ai_field_extraction(ocr_payload)
@@ -605,14 +583,7 @@ def extract_fields(ocr_input, words=None, low_confidence_threshold=60):
     for field in REQUIRED_FIELDS:
         ai_val = ai_fields.get(field)
         if ai_val is None or str(ai_val).strip().lower() in ("null", "none", "", "n/a"):
-            results[field] = {
-                "value": None,
-                "confidence": None,
-                "status": "not_detected",
-                "reason": "not_detected",
-                "raw_match": None,
-                "source": "ai_assisted",
-            }
+            results[field] = _empty("ai_assisted", "not_detected")
             continue
 
         raw_val_str = str(ai_val).strip()
@@ -629,44 +600,16 @@ def extract_fields(ocr_input, words=None, low_confidence_threshold=60):
 
         if clean_val is None:
             # Failed formatting or garbage value
-            results[field] = {
-                "value": None,
-                "confidence": ocr_conf,
-                "status": "needs_review",
-                "reason": val_reason or "failed_validation",
-                "raw_match": raw_val_str,
-                "source": "ai_assisted",
-            }
+            results[field] = _result(None, ocr_conf, "needs_review", val_reason or "failed_validation", raw_val_str, "ai_assisted")
         elif not is_corroborated:
             # Value was not corroborated by OCR ground truth (possible hallucination)
-            results[field] = {
-                "value": clean_val,
-                "confidence": min(ocr_conf, 45.0),
-                "status": "needs_review",
-                "reason": "unverified_by_ocr",
-                "raw_match": raw_val_str,
-                "source": "ai_assisted",
-            }
+            results[field] = _result(clean_val, min(ocr_conf, 45.0), "needs_review", "unverified_by_ocr", raw_val_str, "ai_assisted")
         elif ocr_conf < low_confidence_threshold:
             # Low OCR confidence
-            results[field] = {
-                "value": clean_val,
-                "confidence": ocr_conf,
-                "status": "needs_review",
-                "reason": "low_ocr_confidence",
-                "raw_match": raw_val_str,
-                "source": "ai_assisted",
-            }
+            results[field] = _result(clean_val, ocr_conf, "needs_review", "low_ocr_confidence", raw_val_str, "ai_assisted")
         else:
             # Validated, corroborated, high-confidence
-            results[field] = {
-                "value": clean_val,
-                "confidence": ocr_conf,
-                "status": "auto_extracted",
-                "reason": None,
-                "raw_match": raw_val_str,
-                "source": "ai_assisted",
-            }
+            results[field] = _result(clean_val, ocr_conf, "auto_extracted", None, raw_val_str, "ai_assisted")
 
     # 3. Supplemental Category & Origin check if AI left them null but OCR has obvious matches
     if results["commodity_category"]["value"] is None:
@@ -674,24 +617,14 @@ def extract_fields(ocr_input, words=None, low_confidence_threshold=60):
         search_target = f"{pname_val}\n{raw_text}"
         for cat_regex, category_name in COMMODITY_CATEGORIES:
             if re.search(cat_regex, search_target, re.IGNORECASE):
-                results["commodity_category"] = {
-                    "value": category_name,
-                    "confidence": 92.0,
-                    "status": "auto_extracted",
-                    "reason": None,
-                    "raw_match": category_name,
-                    "source": "heuristic_inference",
-                }
+                results["commodity_category"] = _result(
+                    category_name, 92.0, "auto_extracted", None, category_name, "heuristic_inference"
+                )
                 break
 
     if results["country_of_origin"]["value"] is None and re.search(r"\b(?:India|Bharat)\b", raw_text, re.I):
-        results["country_of_origin"] = {
-            "value": "India",
-            "confidence": 90.0,
-            "status": "auto_extracted",
-            "reason": None,
-            "raw_match": "India",
-            "source": "heuristic_inference",
-        }
+        results["country_of_origin"] = _result(
+            "India", 90.0, "auto_extracted", None, "India", "heuristic_inference"
+        )
 
     return results

@@ -310,7 +310,7 @@ export const Settings: React.FC = () => {
 
           {/* Danger Zone: Delete Account */}
           <section className="panel border-red-200 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/10 p-5">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
                   <Trash2 size={16} />
@@ -324,7 +324,7 @@ export const Settings: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex-shrink-0"
+                className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex-shrink-0"
               >
                 Delete Account
               </button>
@@ -335,8 +335,8 @@ export const Settings: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#152427] border border-[#e0e8e5] dark:border-[#22373a] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#152427] border border-[#e0e8e5] dark:border-[#22373a] rounded-xl max-w-md w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-4 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-base">
                 <AlertTriangle size={20} />
@@ -368,14 +368,14 @@ export const Settings: React.FC = () => {
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#edf1ef] dark:border-[#22373a]">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t border-[#edf1ef] dark:border-[#22373a]">
               <button
                 type="button"
                 onClick={() => {
                   setShowDeleteModal(false);
                   setDeleteConfirmText('');
                 }}
-                className="secondary-button text-xs"
+                className="secondary-button w-full sm:w-auto text-xs"
               >
                 Cancel
               </button>
@@ -383,7 +383,7 @@ export const Settings: React.FC = () => {
                 type="button"
                 disabled={deleteConfirmText !== 'DELETE' || deleting}
                 onClick={handleDeleteAccount}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
+                className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5"
               >
                 {deleting && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 <span>{deleting ? 'Deleting...' : 'Permanently Delete'}</span>

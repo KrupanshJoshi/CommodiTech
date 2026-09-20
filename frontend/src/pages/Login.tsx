@@ -63,10 +63,10 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 md:p-8 bg-[#f6f8f7]">
+    <div className="min-h-screen w-full flex items-start sm:items-center justify-center p-3 sm:p-5 md:p-8 bg-[#f6f8f7]">
       <div className="flex flex-col w-full max-w-5xl mx-auto">
         {/* Top Telemetry Strip */}
-        <div className="w-full flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2.5 rounded-lg shadow-sm border border-[#e0e8e5] mb-4 text-xs font-mono">
+        <div className="w-full flex flex-wrap items-center justify-between gap-2 bg-white px-3 sm:px-4 py-2 rounded-lg shadow-sm border border-[#e0e8e5] mb-3 sm:mb-4 text-xs font-mono">
           <div className="flex items-center space-x-2">
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#e5f1ef] text-[#1b6c72] font-semibold">
               <span className="live-dot" />
@@ -77,7 +77,7 @@ export const Login: React.FC = () => {
             </span>
           </div>
           <div className="flex items-center space-x-3">
-            <span className="text-[#899795]">
+            <span className="hidden sm:inline text-[#899795]">
               SYSTEM: <strong className="text-[#173b46]">ONLINE & SECURE</strong>
             </span>
             <LanguageSelector variant="topbar" />
@@ -87,9 +87,9 @@ export const Login: React.FC = () => {
         {/* Main Authentication Card */}
         <div className="grid grid-cols-1 lg:grid-cols-12 bg-white rounded-xl shadow-lg border border-[#e0e8e5] overflow-hidden">
           {/* Left Hero */}
-          <div className="lg:col-span-6 bg-[#173b46] text-white p-8 lg:p-12 flex flex-col justify-between">
+          <div className="lg:col-span-6 bg-[#173b46] text-white p-5 sm:p-8 lg:p-12 flex flex-col justify-between">
             <div>
-              <div className="flex items-center space-x-3 mb-8">
+              <div className="flex items-center space-x-3 mb-4 lg:mb-8">
                 <div className="w-11 h-11 rounded-lg bg-[#244852] border border-[#3b6672] flex items-center justify-center text-[#75a7a2]">
                   <ShieldCheck size={24} />
                 </div>
@@ -101,19 +101,19 @@ export const Login: React.FC = () => {
                 </div>
               </div>
 
-              <div className="inline-block px-2.5 py-1 rounded bg-[#244852] text-[#9bd0c7] text-[10px] font-mono font-semibold tracking-wider uppercase mb-4 border border-[#3b6672]">
+              <div className="inline-block px-2.5 py-1 rounded bg-[#244852] text-[#9bd0c7] text-[10px] font-mono font-semibold tracking-wider uppercase mb-3 lg:mb-4 border border-[#3b6672]">
                 Statutory Enforcement Portal
               </div>
 
-              <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-white mb-4 leading-snug">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-white lg:mb-4 leading-snug">
                 Automated Legal Metrology & FSSAI Packaging Compliance
               </h2>
 
-              <p className="text-xs text-[#a9c3bf] leading-relaxed mb-8">
+              <p className="hidden lg:block text-xs text-[#a9c3bf] leading-relaxed mb-8">
                 Verify packaged commodities against the Legal Metrology (Packaged Commodities) Rules, 2011 and Food Safety & Standards Regulations, 2020 with multi-engine OCR and transparent human verification.
               </p>
 
-              <div className="space-y-3 pt-6 border-t border-[rgba(255,255,255,0.15)] text-xs text-[#d5ece6]">
+              <div className="hidden lg:block space-y-3 pt-6 border-t border-[rgba(255,255,255,0.15)] text-xs text-[#d5ece6]">
                 <div className="flex items-center space-x-2.5">
                   <CheckCircle2 size={16} className="text-[#9bd0c7] flex-shrink-0" />
                   <span>12 Mandatory Statutory Declarations Verification</span>
@@ -133,16 +133,16 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-[rgba(255,255,255,0.15)] flex items-center justify-between text-[11px] font-mono text-[#87a8a5]">
+            <div className="hidden lg:flex mt-8 pt-6 border-t border-[rgba(255,255,255,0.15)] items-center justify-between text-[11px] font-mono text-[#87a8a5]">
               <span>SIH 2026 // COMMODITECH</span>
               <span>v2.4.0-PROD</span>
             </div>
           </div>
 
           {/* Right Form */}
-          <div className="lg:col-span-6 p-8 lg:p-12 flex flex-col justify-center">
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold text-[#173b46] tracking-tight">
+          <div className="lg:col-span-6 p-5 sm:p-8 lg:p-12 flex flex-col justify-center">
+            <div className="mb-5 sm:mb-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-[#173b46] tracking-tight">
                 {isRegister ? 'Officer Registration' : 'Officer Sign In'}
               </h3>
               <p className="text-xs text-[#778783] mt-1 font-mono">
@@ -174,7 +174,7 @@ export const Login: React.FC = () => {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Ramesh Rao"
-                        className="w-full pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
+                        className="w-full min-h-10 pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-base sm:text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
                       />
                     </div>
                   </div>
@@ -190,7 +190,7 @@ export const Login: React.FC = () => {
                         value={organization}
                         onChange={(e) => setOrganization(e.target.value)}
                         placeholder="e.g. Legal Metrology Department"
-                        className="w-full pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
+                        className="w-full min-h-10 pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-base sm:text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
                       />
                     </div>
                   </div>
@@ -209,7 +209,7 @@ export const Login: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="officer@commoditech.in"
-                    className="w-full pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
+                    className="w-full min-h-10 pl-9 pr-3 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-base sm:text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
                   />
                 </div>
               </div>
@@ -226,7 +226,7 @@ export const Login: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
+                    className="w-full min-h-10 pl-9 pr-10 py-2 bg-[#fdfdfd] border border-[#e0e8e5] rounded text-base sm:text-xs text-[#173b46] focus:outline-none focus:border-[#1b6c72] font-mono"
                   />
                   <button
                     type="button"
