@@ -21,27 +21,29 @@ try:
 except ImportError:  # pragma: no cover - exercised only without the dependency
     HAS_REAL_CORS = False
 
-    def CORS(app, resources=None, origins="*", supports_credentials=True, **kwargs):
+    def CORS(app, resources=None, origins="*", supports_credentials=False, **kwargs):
         """Minimal drop-in replacement for flask_cors.CORS."""
 
         @app.after_request
         def _add_cors_headers(response):
-            response.headers["Access-Control-Allow-Origin"] = (
-                origins if isinstance(origins, str) else ",".join(origins)
-            )
+            response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization"
+                "Content-Type, Authorization, X-Requested-With, Accept"
             )
             response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS"
+                "GET, POST, PUT, DELETE, OPTIONS, PATCH"
             )
-            if supports_credentials:
-                response.headers["Access-Control-Allow-Credentials"] = "true"
             return response
 
         @app.route("/api/<path:_any>", methods=["OPTIONS"])
         def _cors_preflight(_any):
-            return "", 204
+            from flask import Response
+            resp = Response("", status=204)
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            resp.headers["Access-Control-Max-Age"] = "86400"
+            return resp
 
 
 db = SQLAlchemy()

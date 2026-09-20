@@ -11,4 +11,7 @@ reportlab>=4.0.0
 PyJWT>=2.7.0
 Werkzeug>=3.0.0
 pytest>=8.0.0
+gunicorn
+requests
+rapidocr_onnxruntime==1.4.4
 
