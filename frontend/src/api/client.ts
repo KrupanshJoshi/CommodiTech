@@ -87,7 +87,7 @@ async function request<T>(
       throw err;
     }
     const msg = (err?.message === 'Failed to fetch' || !err?.message)
-      ? 'Cannot connect to backend server. Please verify the Flask backend is running on http://127.0.0.1:5000 (python run.py).'
+      ? `Cannot connect to backend server (${API_BASE}). Please check your internet connection or verify the backend is running.`
       : err.message;
     throw new ApiError(msg, 0);
   }
