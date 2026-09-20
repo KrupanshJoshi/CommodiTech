@@ -42,6 +42,15 @@ def create_app(config_name="default"):
     register_blueprints(app)
     register_error_handlers(app)
 
+    @app.get("/")
+    def index():
+        return jsonify({
+            "success": True,
+            "status": "online",
+            "service": "Commodity Compliance Scanner Backend API",
+            "endpoints": "/api"
+        }), 200
+
     return app
 
 
