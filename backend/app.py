@@ -15,7 +15,16 @@ def create_app(config_name="default"):
     if app.config.get("DATABASE_DIR"):
         os.makedirs(app.config["DATABASE_DIR"], exist_ok=True)
 
-    CORS(app, origins=app.config.get("CORS_ORIGINS", "*"), supports_credentials=True)
+    # The production Docker image serves the SPA and API from one origin, so
+    # CORS is only needed for a separately hosted frontend or Vite development.
+    # Keep it scoped to the API and use an environment-controlled allowlist.
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"],
+        max_age=86400,
+    )
     db.init_app(app)
 
     # Import models so they are registered with the ORM before create_all()

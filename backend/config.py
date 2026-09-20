@@ -14,6 +14,17 @@ def _bool(value, default=False):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _cors_origins(value):
+    """Convert a comma-separated CORS allowlist into Flask-CORS origins."""
+    if value is None:
+        # The Vite development server is the only cross-origin client used
+        # locally. Docker serves the built UI from this same application.
+        return ("http://localhost:5173", "http://127.0.0.1:5173")
+
+    origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+    return "*" if origins == ["*"] else tuple(origins)
+
+
 class Config:
     # --- Core ---
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
@@ -60,7 +71,7 @@ class Config:
 
     # --- App ---
     DEBUG = _bool(os.environ.get("FLASK_DEBUG"), default=False)
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+    CORS_ORIGINS = _cors_origins(os.environ.get("CORS_ORIGINS"))
 
 
 class TestingConfig(Config):

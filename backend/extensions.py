@@ -21,14 +21,27 @@ try:
 except ImportError:  # pragma: no cover - exercised only without the dependency
     HAS_REAL_CORS = False
 
-    def CORS(app, resources=None, origins="*", supports_credentials=True, **kwargs):
+    def CORS(app, resources=None, origins="*", supports_credentials=False, **kwargs):
         """Minimal drop-in replacement for flask_cors.CORS."""
+        from flask import request
+
+        if resources:
+            resource_options = next(iter(resources.values()))
+            origins = resource_options.get("origins", origins)
+        allowed_origins = {origins} if isinstance(origins, str) else set(origins)
+        max_age = kwargs.get("max_age")
 
         @app.after_request
         def _add_cors_headers(response):
-            response.headers["Access-Control-Allow-Origin"] = (
-                origins if isinstance(origins, str) else ",".join(origins)
-            )
+            # A browser accepts one origin here, never a comma-separated list.
+            origin = request.headers.get("Origin")
+            if not request.path.startswith("/api/") or not origin:
+                return response
+            if "*" not in allowed_origins and origin not in allowed_origins:
+                return response
+
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers.add("Vary", "Origin")
             response.headers["Access-Control-Allow-Headers"] = (
                 "Content-Type, Authorization"
             )
@@ -37,11 +50,9 @@ except ImportError:  # pragma: no cover - exercised only without the dependency
             )
             if supports_credentials:
                 response.headers["Access-Control-Allow-Credentials"] = "true"
+            if max_age is not None:
+                response.headers["Access-Control-Max-Age"] = str(max_age)
             return response
-
-        @app.route("/api/<path:_any>", methods=["OPTIONS"])
-        def _cors_preflight(_any):
-            return "", 204
 
 
 db = SQLAlchemy()

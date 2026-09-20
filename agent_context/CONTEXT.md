@@ -1,7 +1,7 @@
 ---
 version: 3
-last_updated: '2026-09-19T12:50:00Z'
-last_agent: frontend_agent
+last_updated: '2026-09-20T00:00:00Z'
+last_agent: codex
 workflow_id: wf-commoditech-001
 status: active
 ---
@@ -10,7 +10,7 @@ status: active
 Implement and verify an automated regulatory compliance scanning system for packaged commodities, integrating computer vision OCR, statutory rule evaluation, and formal PDF audit report generation.
 
 # Current Focus
-Maintain and verify responsive frontend behavior across phone, tablet, and desktop layouts.
+Maintain and verify responsive frontend behavior across phone, tablet, and desktop layouts, with deployment CORS configured safely.
 
 # Completed Work
 - [system @ 2026-09-19T16:15:00Z] — Initialized project workspace and baseline services.
@@ -23,6 +23,7 @@ Maintain and verify responsive frontend behavior across phone, tablet, and deskt
 - [frontend_agent @ 2026-09-19T12:41:02Z] — Completed a second mobile responsiveness pass: condensed the login hero on phone/tablet layouts so sign-in fields are reached quickly, prevented mobile input zoom, made the deletion workflow fit short viewports, and preserved vertical overflow for page overlays/tooltips. Frontend production build passes.
 - [frontend_agent @ 2026-09-19T12:47:31Z] — Reworked New Scan workflow indicators from circular badges to compact rounded number labels, eliminating the cramped tablet appearance. Expanded the drawer and stacked responsive layout breakpoint from 680px to 900px so tablets use the stable compact interface. Frontend production build passes.
 - [frontend_agent @ 2026-09-19T12:50:00Z] — Removed the remaining 900–1000px responsive gap by aligning the compact drawer and stacked-layout breakpoint with the existing 1000px tablet breakpoint.
+- [codex @ 2026-09-20T00:00:00Z] — Configured API-only CORS with a comma-separated `CORS_ORIGINS` allowlist, local Vite defaults, authorization/content-type preflight support, and a 24-hour preflight cache. Cookie credentials are not enabled because authentication uses bearer tokens.
 
 # Open Questions / Blockers
 - [system @ 2026-09-19T16:15:00Z] — Validate OCR accuracy threshold across diverse packaging label conditions.
@@ -34,6 +35,8 @@ frontend_ui: http://localhost:5173
 
 # Handoff Notes
 On screens up to 1000px, the New Scan upload section offers upload/drop and camera capture cards, and the app uses the drawer/compact layout instead of the cramped icon-only sidebar. Camera capture uses `<input capture="environment">`, which hands off to the device camera where supported. The login page collapses desktop-only descriptive content below the `lg` breakpoint while keeping branding and the sign-in form visible early in the mobile scroll. No backend/API changes were required.
+
+For the single Docker image, the compiled frontend and `/api` are served by the same origin, so no hosting CORS change is needed. If the frontend is hosted separately (such as Vercel), set the backend container environment variable `CORS_ORIGINS=https://your-frontend-domain` (comma-separate multiple exact origins; no trailing slash) and build the frontend with `VITE_API_BASE_URL=https://your-api-domain/api`. Do not use `*` in production.
 
 # Decision Log
 - [2026-09-19T16:15:00Z] DECISION: Use lightweight markdown context store | RATIONALE: Zero-overhead persistence across agent sessions | ALTERNATIVES: Heavy database state, external Redis

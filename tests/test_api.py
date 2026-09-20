@@ -58,6 +58,20 @@ def test_health_endpoints(client):
     assert "available" in data_ocr
 
 
+def test_api_cors_preflight(client):
+    """The browser can send JSON and bearer-authenticated API requests from Vite."""
+    res = client.options("/api/auth/login", headers={
+        "Origin": "http://localhost:5173",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type",
+    })
+
+    assert res.status_code == 200
+    assert res.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
+    assert "authorization" in res.headers["Access-Control-Allow-Headers"].lower()
+    assert "POST" in res.headers["Access-Control-Allow-Methods"]
+
+
 # ==========================================
 # 2. Authentication Flow & Security
 # ==========================================
