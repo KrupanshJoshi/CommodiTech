@@ -13,10 +13,16 @@ import type {
 } from '../types';
 
 function getApiBase(): string {
-  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-  if (!envUrl) {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+
+  // Production: use Vercel's same-origin /api proxy.
+  if (!envUrl || envUrl === '/api') {
     return '/api';
   }
+
+  // Backward-compatible support for an absolute backend URL.
   return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
 }
 
@@ -46,11 +52,15 @@ async function request<T>(
   const headers = new Headers(options.headers || {});
 
   const token = getToken();
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
+  if (
+    !(options.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -67,13 +77,16 @@ async function request<T>(
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      let errorMessage = data?.error || data?.message || `HTTP ${response.status} error`;
+      let errorMessage =
+        data?.error ||
+        data?.message ||
+        `HTTP ${response.status} error`;
+
       if (data?.detail) {
         errorMessage = `${errorMessage}: ${data.detail}`;
       }
 
       if (response.status === 401) {
-        // Clear token on authentication failure
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
@@ -86,16 +99,22 @@ async function request<T>(
     if (err instanceof ApiError) {
       throw err;
     }
-    const msg = (err?.message === 'Failed to fetch' || !err?.message)
-      ? `Cannot connect to backend server (${API_BASE}). Please check your internet connection or verify the backend is running.`
-      : err.message;
+
+    const msg =
+      err?.message === 'Failed to fetch' || !err?.message
+        ? 'Unable to connect to the server. Please check your internet connection and try again.'
+        : err.message;
+
     throw new ApiError(msg, 0);
   }
 }
 
 export const api = {
   // --- Auth ---
-  async login(payload: { email: string; password: string }): Promise<AuthResponse> {
+  async login(payload: {
+    email: string;
+    password: string;
+  }): Promise<AuthResponse> {
     return request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -114,9 +133,15 @@ export const api = {
     });
   },
 
-  async logout(): Promise<{ success: boolean; message: string }> {
+  async logout(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
     try {
-      return await request<{ success: boolean; message: string }>('/auth/logout', {
+      return await request<{
+        success: boolean;
+        message: string;
+      }>('/auth/logout', {
         method: 'POST',
       });
     } finally {
@@ -125,17 +150,35 @@ export const api = {
     }
   },
 
-  async getCurrentUser(): Promise<{ success: boolean; user: User }> {
-    return request<{ success: boolean; user: User }>('/auth/me');
+  async getCurrentUser(): Promise<{
+    success: boolean;
+    user: User;
+  }> {
+    return request<{
+      success: boolean;
+      user: User;
+    }>('/auth/me');
   },
 
   // --- Health ---
-  async getHealth(): Promise<{ success: boolean; status: string; ocr: OCRHealth }> {
-    return request<{ success: boolean; status: string; ocr: OCRHealth }>('/health');
+  async getHealth(): Promise<{
+    success: boolean;
+    status: string;
+    ocr: OCRHealth;
+  }> {
+    return request<{
+      success: boolean;
+      status: string;
+      ocr: OCRHealth;
+    }>('/health');
   },
 
-  async getOcrHealth(): Promise<{ success: boolean } & OCRHealth> {
-    return request<{ success: boolean } & OCRHealth>('/ocr/health');
+  async getOcrHealth(): Promise<{
+    success: boolean;
+  } & OCRHealth> {
+    return request<{
+      success: boolean;
+    } & OCRHealth>('/ocr/health');
   },
 
   // --- OCR & Scans ---
@@ -149,10 +192,11 @@ export const api = {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    // OCR is CPU/AI work on the backend. Abort instead of leaving the
-    // processing screen stuck forever if the server becomes unresponsive.
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
+
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, 45_000);
 
     try {
       return await request<{
@@ -173,6 +217,7 @@ export const api = {
           408
         );
       }
+
       throw err;
     } finally {
       window.clearTimeout(timeoutId);
@@ -204,16 +249,34 @@ export const api = {
     });
   },
 
-  async listScans(): Promise<{ success: boolean; scans: ScanSummary[] }> {
-    return request<{ success: boolean; scans: ScanSummary[] }>('/scans');
+  async listScans(): Promise<{
+    success: boolean;
+    scans: ScanSummary[];
+  }> {
+    return request<{
+      success: boolean;
+      scans: ScanSummary[];
+    }>('/scans');
   },
 
-  async getScan(id: number): Promise<{ success: boolean; scan: ScanDetail }> {
-    return request<{ success: boolean; scan: ScanDetail }>(`/scans/${id}`);
+  async getScan(id: number): Promise<{
+    success: boolean;
+    scan: ScanDetail;
+  }> {
+    return request<{
+      success: boolean;
+      scan: ScanDetail;
+    }>(`/scans/${id}`);
   },
 
-  async deleteScan(id: number): Promise<{ success: boolean; message: string }> {
-    return request<{ success: boolean; message: string }>(`/scans/${id}`, {
+  async deleteScan(id: number): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return request<{
+      success: boolean;
+      message: string;
+    }>(`/scans/${id}`, {
       method: 'DELETE',
     });
   },
@@ -234,46 +297,93 @@ export const api = {
   },
 
   // --- Reports ---
-  async createReport(scanId: number): Promise<{ success: boolean; report: ReportItem }> {
-    return request<{ success: boolean; report: ReportItem }>(`/reports/${scanId}`, {
+  async createReport(
+    scanId: number
+  ): Promise<{
+    success: boolean;
+    report: ReportItem;
+  }> {
+    return request<{
+      success: boolean;
+      report: ReportItem;
+    }>(`/reports/${scanId}`, {
       method: 'POST',
     });
   },
 
-  async listReports(): Promise<{ success: boolean; reports: ReportItem[] }> {
-    return request<{ success: boolean; reports: ReportItem[] }>('/reports');
+  async listReports(): Promise<{
+    success: boolean;
+    reports: ReportItem[];
+  }> {
+    return request<{
+      success: boolean;
+      reports: ReportItem[];
+    }>('/reports');
   },
 
-  async getReport(reportId: number): Promise<{ success: boolean; report: ReportItem }> {
-    return request<{ success: boolean; report: ReportItem }>(`/reports/${reportId}`);
+  async getReport(
+    reportId: number
+  ): Promise<{
+    success: boolean;
+    report: ReportItem;
+  }> {
+    return request<{
+      success: boolean;
+      report: ReportItem;
+    }>(`/reports/${reportId}`);
   },
 
   getReportDownloadUrl(reportId: number): string {
     return `${API_BASE}/reports/${reportId}/download`;
   },
 
-  async downloadReportPdf(reportId: number, filename: string): Promise<void> {
+  async downloadReportPdf(
+    reportId: number,
+    filename: string
+  ): Promise<void> {
     const token = getToken();
-    const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    const res = await fetch(`${API_BASE}/reports/${reportId}/download`, { headers });
+    const headers = new Headers();
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const res = await fetch(
+      `${API_BASE}/reports/${reportId}/download`,
+      {
+        headers,
+      }
+    );
+
     if (!res.ok) {
       let errDetail = `HTTP ${res.status} error`;
+
       try {
         const json = await res.json();
-        if (json?.error) errDetail = json.error;
+
+        if (json?.error) {
+          errDetail = json.error;
+        }
       } catch {}
+
       throw new ApiError(errDetail, res.status);
     }
+
     const blob = await res.blob();
+
     const url = window.URL.createObjectURL(blob);
+
     const a = document.createElement('a');
+
     a.href = url;
-    a.download = filename || `compliance_report_${reportId}.pdf`;
+    a.download =
+      filename || `compliance_report_${reportId}.pdf`;
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
     window.URL.revokeObjectURL(url);
   },
 
@@ -283,17 +393,39 @@ export const api = {
   },
 
   // --- Rules ---
-  async listRules(): Promise<{ success: boolean; rules: RuleDefinition[]; count: number }> {
-    return request<{ success: boolean; rules: RuleDefinition[]; count: number }>('/rules');
+  async listRules(): Promise<{
+    success: boolean;
+    rules: RuleDefinition[];
+    count: number;
+  }> {
+    return request<{
+      success: boolean;
+      rules: RuleDefinition[];
+      count: number;
+    }>('/rules');
   },
 
-  async getRule(ruleId: string): Promise<{ success: boolean; rule: RuleDefinition }> {
-    return request<{ success: boolean; rule: RuleDefinition }>(`/rules/${ruleId}`);
+  async getRule(
+    ruleId: string
+  ): Promise<{
+    success: boolean;
+    rule: RuleDefinition;
+  }> {
+    return request<{
+      success: boolean;
+      rule: RuleDefinition;
+    }>(`/rules/${ruleId}`);
   },
 
   // --- Settings ---
-  async getProfile(): Promise<{ success: boolean; user: User }> {
-    return request<{ success: boolean; user: User }>('/settings/profile');
+  async getProfile(): Promise<{
+    success: boolean;
+    user: User;
+  }> {
+    return request<{
+      success: boolean;
+      user: User;
+    }>('/settings/profile');
   },
 
   async updateProfile(payload: {
@@ -301,16 +433,28 @@ export const api = {
     organization?: string;
     email?: string;
     new_password?: string;
-  }): Promise<{ success: boolean; user: User }> {
-    return request<{ success: boolean; user: User }>('/settings/profile', {
+  }): Promise<{
+    success: boolean;
+    user: User;
+  }> {
+    return request<{
+      success: boolean;
+      user: User;
+    }>('/settings/profile', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
   },
 
-  async deleteAccount(): Promise<{ success: boolean; message: string }> {
+  async deleteAccount(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
     try {
-      return await request<{ success: boolean; message: string }>('/settings/account', {
+      return await request<{
+        success: boolean;
+        message: string;
+      }>('/settings/account', {
         method: 'DELETE',
       });
     } finally {
